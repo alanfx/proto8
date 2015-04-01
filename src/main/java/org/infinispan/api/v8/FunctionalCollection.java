@@ -10,7 +10,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-public interface FunctionalCollection<E> {
+public interface FunctionalCollection<E> extends AutoCloseable {
 
    FunctionalCollection<E> withParams(Param... params);
 

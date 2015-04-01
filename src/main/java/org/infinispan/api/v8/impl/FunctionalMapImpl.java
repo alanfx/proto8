@@ -15,8 +15,6 @@ public class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
 
    final org.infinispan.cache.impl.CacheImpl oldCacheImpl;
 
-
-
    @Override
    public FunctionalMap<K, V> withParams(Param... params) {
       // paramsMap.put(, ...);
@@ -30,14 +28,7 @@ public class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
 
    @Override
    public <T> Map<K, CompletableFuture<T>> evalAll(Map<? extends K, ? extends V> iter, Mode.AccessMode mode, Functions.ValueBiFunction<? super V, ? extends T> f) {
-      VisitableCommand cmd = mode == AccessMode.READ_ONLY
-         ? oldCacheImpl.commandsFactory.buildEvalKeyReadOnlyCommand(key, f)
-         : oldCacheImpl.commandsFactory.buildEvalKeyWriteCommand(key, mode, f);
-
-      InvocationContext ctx = oldCacheImpl.getInvocationContextWithImplicitTransaction(false, null, 1);
-      return CompletableFuture.supplyAsync(
-         () -> (T) executeCommandAndCommitIfNeeded(ctx, cmd));
-      return null;  // TODO: Customise this generated block
+      return null;
    }
 
    @Override
