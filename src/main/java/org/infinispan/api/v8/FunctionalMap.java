@@ -15,12 +15,6 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
 
    FunctionalMap<K, V> withAccessMode(AccessMode mode); // weakest default?
 
-//   CompletableFuture<Void> put(K k, V value);
-//
-//   CompletableFuture<Optional<V>> get(K k);
-//
-//   CompletableFuture<Void> remove(K k);
-
    // TODO: @Mario, Weakest default? READ?
    // TODO: @Mario, compute lambda locally and replicate the value only? For traditional cases it would be enough...
    // TODO: What if the lambda not serialize? Could we run it locally alone? And fetch/send whatever you need? Default is local...
