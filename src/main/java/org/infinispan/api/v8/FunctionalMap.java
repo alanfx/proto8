@@ -2,26 +2,23 @@ package org.infinispan.api.v8;
 
 import org.infinispan.api.v8.Functions.PairFunction;
 import org.infinispan.api.v8.Functions.ValueFunction;
-import org.infinispan.api.v8.Mode.AccessMode;
 import org.infinispan.api.v8.Mode.StreamMode;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 public interface FunctionalMap<K, V> extends AutoCloseable {
 
-   FunctionalMap<K, V> withParams(Param... params);
+   FunctionalMap<K, V> withParams(Param<?>... ps);
 
-   FunctionalMap<K, V> withAccessMode(AccessMode mode); // weakest default?
-
-   // TODO: @Mario, Weakest default? READ?
    // TODO: @Mario, compute lambda locally and replicate the value only? For traditional cases it would be enough...
    // TODO: What if the lambda not serialize? Could we run it locally alone? And fetch/send whatever you need? Default is local...
    // TODO: Executing lambdas remotely optional in the future, for higher level data structures maybe? e.g. List
 
    // TODO: CompletableFuture can't be interrupted? The workaround would be to complete it with a fake value or similar...
-   <T> CompletableFuture<T> eval(K key, AccessMode mode, ValueFunction<? super V, ? extends T> f);
+   <T> CompletableFuture<T> eval(K key, Function<Value<? super V>, ? extends T> f);
 
    // Eval all, to do: side-effecting fold e.g. remove all entries, one by one, and fire listeners...
    // TODO: @Mario: stream should not block when trying to provide the next element... something like Observable would be better...
@@ -35,7 +32,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
    // TODO: Our own Observable to a Stream is trivial, but doing the opposite
    // TODO: Push vs Pull, Future.get vs Completable future, that's the same as Stream and RxJava's Observable
    // TODO: @Mario, too generic, split into two...
-   <T, P> Stream<Pair<K, T>> evalMany(Stream<Pair<K, P>> iter, AccessMode mode,
+   <T, P> Stream<Pair<K, T>> evalMany(Stream<Pair<K, P>> iter,
       Functions.ValueBiFunction<? super P, ? extends T> f);
 
    // A further improvement: better, return a stream...

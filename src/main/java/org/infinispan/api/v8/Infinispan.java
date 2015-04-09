@@ -38,7 +38,8 @@ public class Infinispan {
       MAP(Map.class) {
          @Override
          public Map create() {
-            return new MapDecorator<>(new FunctionalMapImpl<>());
+            //return new MapDecorator<>(new FunctionalMapImpl<>());
+            return null;
          }
 
          @Override
