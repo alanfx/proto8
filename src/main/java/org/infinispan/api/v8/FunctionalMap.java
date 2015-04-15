@@ -1,58 +1,86 @@
 package org.infinispan.api.v8;
 
-import org.infinispan.api.v8.Functions.PairFunction;
-import org.infinispan.api.v8.Functions.ValueFunction;
-import org.infinispan.api.v8.Mode.StreamMode;
-
+import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public interface FunctionalMap<K, V> extends AutoCloseable {
 
+   // TODO: Consider adding filter and/or filterKeys, filterValues...
+
+   /**
+    *
+    */
    FunctionalMap<K, V> withParams(Param<?>... ps);
 
-   // TODO: @Mario, compute lambda locally and replicate the value only? For traditional cases it would be enough...
-   // TODO: What if the lambda not serialize? Could we run it locally alone? And fetch/send whatever you need? Default is local...
-   // TODO: Executing lambdas remotely optional in the future, for higher level data structures maybe? e.g. List
+   /**
+    * Evaluate a function on the value associated with the key.
+    *
+    * This method can be used to implement the vast majority of single-key
+    * based operations in {@link ConcurrentMap} such as
+    * {@link ConcurrentMap#put(Object, Object)}, {@link ConcurrentMap#get(Object)},
+    * {@link ConcurrentMap#remove(Object)}, {@link ConcurrentMap#putIfAbsent(Object, Object)},
+    * {@link ConcurrentMap#replace(Object, Object)}...etc.
+    */
+   <T> CompletableFuture<T> eval(K key, Function<Value<V>, ? extends T> f);
 
-   // TODO: CompletableFuture can't be interrupted? The workaround would be to complete it with a fake value or similar...
-   <T> CompletableFuture<T> eval(K key, Function<Value<? super V>, ? extends T> f);
+   /**
+    * Evaluate a function on all the values.
+    *
+    * This method can be used to implement JCache's removeAll().
+    */
+   <T> Observable<T> evalAll(Function<Value<V>, ? extends T> f);
 
-   // Eval all, to do: side-effecting fold e.g. remove all entries, one by one, and fire listeners...
-   // TODO: @Mario: stream should not block when trying to provide the next element... something like Observable would be better...
-   // TODO: @Mario, stream can be lazy... but is not designed to be asynchronous. Either:
-   // our own Observable, or Stream<Completable<T>>...
-   // TODO: Combining Observables vs combining streams
-   // <T, P> Stream<Pair<K, T>> evalAll(AccessMode mode, ValueFunction<? super V, ? extends T> f);
+   /**
+    * Evaluate a function on the values associated with the subset of keys passed in.
+    *
+    * This method can be used to ...
+    */
+   <T> Observable<T> evalMany(Collection<? extends K> s, Function<Value<V>, ? extends T> f);
 
-   // Even better: pipe input Stream into output Stream
-   // TODO: @Mario, Observable to Stream? Stream to Observable?
-   // TODO: Our own Observable to a Stream is trivial, but doing the opposite
-   // TODO: Push vs Pull, Future.get vs Completable future, that's the same as Stream and RxJava's Observable
-   // TODO: @Mario, too generic, split into two...
-   <T, P> Stream<Pair<K, T>> evalMany(Stream<Pair<K, P>> iter,
-      Functions.ValueBiFunction<? super P, ? extends T> f);
+   /**
+    * Evaluate a function...
+    *
+    * This method can be used to ...
+    */
+   <T> Observable<T> evalMany(Map<? extends K, ? extends V> s, BiFunction<? super V, Value<V>, ? extends T> f);
 
-   // A further improvement: better, return a stream...
-   // <T> Stream<Pair<K, T>> evalMany(Map<? extends K, ? extends V> iter, AccessMode mode,
-   //    ValueBiFunction<? super V, ? extends T> f);
-
-   // Original option: a bit limiting...
-   //   <T> Map<K, CompletableFuture<T>> evalMany(Map<? extends K, ? extends V> iter, AccessMode mode,
-   //      ValueBiFunction<? super V, ? extends T> f);
-
+   /**
+    * Truncate
+    */
    CompletableFuture<Void> truncate();
 
-   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
-   // TODO: Better with a Predicate and return true/false, findFirst???
-   <T> CompletableFuture<Optional<T>> search(StreamMode mode, PairFunction<? super K, ? super V, ? extends T> f);
+   /**
+    * Attempts to find an element, or a part of it, in the underlying collection,
+    * applying the given function to each element in the collection.
+    *
+    * When the element is found, the function should return a non-empty
+    * {@link Optional} containing the found element. If the element has not
+    * been found, the function should return an empty {@link Optional} which
+    * results in the search continuing.
+    *
+    * By default, only keys are searched, meaning that {@link Pair#key()} is
+    * guaranteed to return a non-empty {@link Optional}. Values can also be
+    * searched by passing in a parameter containing {@link Param.StreamModes#VALUES}.
+    *
+    * Returns an asynchronous {@link Optional} describing the found element, or
+    * an empty asynchronous {@code Optional} no element was found.
+    *
+    * This method can be used to implement {@link ConcurrentMap} operations such as
+    * {@link ConcurrentMap#isEmpty()} and {@link ConcurrentMap#containsValue(Object)}.
+    */
+   <T> CompletableFuture<Optional<T>> findAny(Function<Pair<K, V>, Optional<T>> f);
 
-   // TODO: Add searchAll or filter... method for being able to return a Observable/Stream....
-
-   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
-   // TODO: Reduce better naming
-   <T> CompletableFuture<T> reduce(StreamMode mode, T z, Functions.PairBiFunction<? super K, ? super V, ? super T, ? extends T> f);
+   /**
+    * TODO...
+    */
+   <T> CompletableFuture<T> reduce(T z, BiFunction<Pair<K, V>, T, T> f);
 
 }

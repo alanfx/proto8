@@ -1,7 +1,6 @@
 package org.infinispan.api.v8;
 
 import org.infinispan.api.v8.Functions.ValueFunction;
-import org.infinispan.api.v8.Mode.StreamMode;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -26,10 +25,10 @@ public interface FunctionalCollection<E> extends AutoCloseable {
 
    Stream<E> stream();
 
-   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
-   <T> CompletableFuture<Optional<T>> search(StreamMode mode, Function<E, ? extends T> f);
-
-   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
-   <T> CompletableFuture<T> fold(StreamMode mode, T z, BiFunction<? super E, ? super T, ? extends T> f);
+//   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
+//   <T> CompletableFuture<Optional<T>> search(StreamMode mode, Function<E, ? extends T> f);
+//
+//   // TODO: Move to EnumSet to be able to pass combination of stream modes, e.g. KEYS + SEGMENT, VALUES + MACHINE, KEYS + VALUES + RACK
+//   <T> CompletableFuture<T> fold(StreamMode mode, T z, BiFunction<? super E, ? super T, ? extends T> f);
 
 }

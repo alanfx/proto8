@@ -9,6 +9,8 @@ class Params {
 
    private static final Param<?>[] DEFAULTS = new Param<?>[]{
       Param.AccessMode.defaultValue(),
+      Param.StreamMode.defaultValue(),
+      Param.WaitMode.defaultValue(),
       Param.Lifespan.defaultValue()
    };
 

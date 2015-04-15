@@ -4,13 +4,7 @@ import java.util.function.Consumer;
 
 public interface Observable<T> {
 
-   Subscription subscribe(Consumer<? super T> onNext);
-
-   Subscription subscribe(Consumer<? super T> onNext, Consumer<Throwable> onError);
-
-   Subscription subscribe(Consumer<? super T> onNext, Consumer<Throwable> onError, Runnable onComplete);
-
-   Subscription subscribe(Observer observer);
+   Subscription subscribe(Observer<? super T> observer);
 
    interface Subscription {
       void unsubscribe();
@@ -22,4 +16,29 @@ public interface Observable<T> {
       void onError(Throwable e);
       void onNext(T t);
    }
+
+   default Subscription subscribe(Consumer<? super T> onNext, Consumer<Throwable> onError, Runnable onComplete) {
+      return subscribe(new Observer<T>() {
+         @Override public void onCompleted() { onComplete.run(); }
+         @Override  public void onError(Throwable e) { onError.accept(e); }
+         @Override  public void onNext(T t) { onNext.accept(t); }
+      });
+   }
+
+   default Subscription subscribe(Consumer<? super T> onNext, Consumer<Throwable> onError) {
+      return subscribe(new Observer<T>() {
+         @Override public void onCompleted() { /** no-op */ }
+         @Override  public void onError(Throwable e) { onError.accept(e); }
+         @Override  public void onNext(T t) { onNext.accept(t); }
+      });
+   }
+
+   default Subscription subscribe(Consumer<? super T> onNext) {
+      return subscribe(new Observer<T>() {
+         @Override public void onCompleted() { /** no-op */ }
+         @Override  public void onError(Throwable e) { throw new IllegalStateException(); }
+         @Override  public void onNext(T t) { onNext.accept(t); }
+      });
+   }
+
 }
