@@ -15,6 +15,10 @@ class Values {
       return new WriteOnlyValue<>(key, data);
    }
 
+   public static <K, V> Value<V> readWrite(K key, ConcurrentMap<K, V> data) {
+      return new ReadWriteValue<>(key, data);
+   }
+
    private static class ReadOnlyValue<V> implements Value<V> {
       final V value;
 
@@ -38,7 +42,7 @@ class Values {
       }
    }
 
-   private static class WriteOnlyValue<K, V> implements Value<V> {
+   private static final class WriteOnlyValue<K, V> implements Value<V> {
       private final ConcurrentMap<K, V> data;
       private final K key;
 
@@ -60,7 +64,35 @@ class Values {
 
       @Override
       public Void remove() {
-         throw new IllegalStateException();
+         data.remove(key);
+         return null;
+      }
+   }
+
+   private static final class ReadWriteValue<K, V> implements Value<V> {
+      private final ConcurrentMap<K, V> data;
+      private final K key;
+
+      private ReadWriteValue(K key, ConcurrentMap<K, V> data) {
+         this.data = data;
+         this.key = key;
+      }
+
+      @Override
+      public Optional<V> get() {
+         return Optional.ofNullable(data.get(key));
+      }
+
+      @Override
+      public Void set(V value) {
+         data.put(key, value);
+         return null;
+      }
+
+      @Override
+      public Void remove() {
+         data.remove(key);
+         return null;
       }
    }
 

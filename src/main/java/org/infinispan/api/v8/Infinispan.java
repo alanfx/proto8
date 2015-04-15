@@ -2,6 +2,8 @@ package org.infinispan.api.v8;
 
 import java.io.InputStream;
 import java.util.concurrent.locks.Lock;
+import org.infinispan.api.v8.impl.FunctionalMapImpl;
+//import org.infinispan.api.v8.impl.MapDecorator;
 
 /**
  * Infinispan. This class represents the main entry point for creating Infinispan objects
