@@ -1,7 +1,5 @@
 package org.infinispan.api.v8;
 
-import org.infinispan.api.v8.Functions.ValueFunction;
-
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -12,7 +10,7 @@ public interface FunctionalCollection<E> extends AutoCloseable {
 
    FunctionalCollection<E> withParams(Param... params);
 
-   <T> CompletableFuture<T> eval(ValueFunction<? super E, ? extends T> f);
+   <T> CompletableFuture<T> eval(Function<? super E, ? extends T> f);
 
 //   // Eval all, to do: side-effecting fold e.g. remove all entries, one by one, and fire listeners...
 //   <T, P> Stream<Pair<K, T>> evalAll(AccessMode mode, ValueBiFunction<? super P, ? extends T> f);

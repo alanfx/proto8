@@ -1,45 +1,47 @@
 package org.infinispan.api.v8;
 
 import java.util.EnumSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public interface Param<P> {
 
    int id();
    P get();
 
-   // TODO: Add blocking param
-
-   enum AccessMode implements Param<AccessMode> {
-      READ_ONLY {
+   enum WaitMode implements Param<WaitMode> {
+      BLOCKING {
          @Override
-         public AccessMode get() {
-            return READ_ONLY;
+         public WaitMode get() {
+            return BLOCKING;
          }
-      }, READ_WRITE {
+      }, NON_BLOCKING {
          @Override
-         public AccessMode get() {
-            return READ_WRITE;
-         }
-      }, WRITE_ONLY {
-         @Override
-         public AccessMode get() {
-            return WRITE_ONLY;
+         public WaitMode get() {
+            return NON_BLOCKING;
          }
       };
 
       public static final int ID = 0;
-
-      public boolean isWrite() {
-         return this == READ_WRITE || this == WRITE_ONLY;
-      }
 
       @Override
       public int id() {
          return ID;
       }
 
-      public static AccessMode defaultValue() {
-         return READ_ONLY;
+      public static WaitMode defaultValue() {
+         return NON_BLOCKING;
+      }
+
+      public static <T> CompletableFuture<T> withWaitMode(WaitMode waitMode, Supplier<T> s) {
+         switch (waitMode) {
+            case BLOCKING:
+               return CompletableFuture.completedFuture(s.get());
+            case NON_BLOCKING:
+               return CompletableFuture.supplyAsync(s);
+            default:
+               throw new IllegalStateException();
+         }
       }
    }
 
@@ -101,78 +103,5 @@ public interface Param<P> {
          return new StreamMode(EnumSet.of(mode, modes));
       }
    }
-
-   enum WaitMode implements Param<WaitMode> {
-      BLOCKING {
-         @Override
-         public WaitMode get() {
-            return BLOCKING;
-         }
-      }, NON_BLOCKING {
-         @Override
-         public WaitMode get() {
-            return NON_BLOCKING;
-         }
-      };
-
-      public static final int ID = 2;
-
-      @Override
-      public int id() {
-         return ID;
-      }
-
-      public static WaitMode defaultValue() {
-         return NON_BLOCKING;
-      }
-   }
-
-   final class Lifespan implements Param<Long> {
-      public static final int ID = 3;
-      private static final Lifespan DEFAULT = new Lifespan(-1);
-
-      private final long lifespan;
-
-      public Lifespan(long lifespan) {
-         this.lifespan = lifespan;
-      }
-
-      @Override
-      public int id() {
-         return ID;
-      }
-
-      @Override
-      public Long get() {
-         return lifespan;
-      }
-
-      public static Lifespan defaultValue() {
-         return DEFAULT;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-         if (this == o) return true;
-         if (o == null || getClass() != o.getClass()) return false;
-
-         Lifespan lifespan1 = (Lifespan) o;
-
-         return lifespan == lifespan1.lifespan;
-
-      }
-
-      @Override
-      public int hashCode() {
-         return (int) (lifespan ^ (lifespan >>> 32));
-      }
-
-      @Override
-      public String toString() {
-         return "Lifespan=" + lifespan;
-      }
-   }
-
-
 
 }

@@ -1,8 +1,9 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.FunctionalMap;
+import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
+import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
+import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
 import org.infinispan.api.v8.Observable;
-import org.infinispan.api.v8.Param.AccessMode;
 import org.infinispan.api.v8.Param.StreamMode;
 import org.infinispan.api.v8.Param.WaitMode;
 
@@ -21,14 +22,15 @@ import static org.infinispan.api.v8.Param.StreamModes.VALUES;
 
 public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
-   final FunctionalMap<K, V> readOnly;
-   final FunctionalMap<K, V> writeOnly;
-   final FunctionalMap<K, V> readWrite;
+   final ReadOnlyMap<K, V> readOnly;
+   final WriteOnlyMap<K, V> writeOnly;
+   final ReadWriteMap<K, V> readWrite;
 
-   public ConcurrentMapDecorator(FunctionalMap<K, V> map) {
-      this.readOnly = map.withParams(WaitMode.BLOCKING);
-      this.writeOnly = map.withParams(AccessMode.WRITE_ONLY, WaitMode.BLOCKING);
-      this.readWrite = map.withParams(AccessMode.READ_WRITE, WaitMode.BLOCKING);
+   public ConcurrentMapDecorator(FunctionalMapImpl<K, V> map) {
+      FunctionalMapImpl<K, V> blockingMap = map.withParams(WaitMode.BLOCKING);
+      this.readOnly = ReadOnlyMapImpl.create(blockingMap);
+      this.writeOnly = WriteOnlyMapImpl.create(blockingMap);
+      this.readWrite = ReadWriteMapImpl.create(blockingMap);
    }
 
    @Override
@@ -69,10 +71,9 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public V put(K key, V value) {
-      // TODO: This lambda captures 'value', so each time it's called it allocates a lambda...
-      return await(readWrite.eval(toK(key), v -> {
-         V prev = v.get().orElse(null);
-         v.set(value);
+      return await(readWrite.eval(toK(key), value, (v, rw) -> {
+         V prev = rw.get().orElse(null);
+         rw.set(v);
          return prev;
       }));
    }
