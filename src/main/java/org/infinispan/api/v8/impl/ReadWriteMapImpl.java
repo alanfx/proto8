@@ -1,8 +1,6 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
-import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.Param;
 
@@ -31,17 +29,17 @@ public class ReadWriteMapImpl<K, V> implements ReadWriteMap<K, V> {
    }
 
    @Override
-   public <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<V>, R> f) {
+   public <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[RW] Invoked eval(k=%s, %s)%n", key, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(Values.readWrite(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.readWrite(key, functionalMap.data)));
    }
 
    @Override
-   public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<V>, R> f) {
+   public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(value, Values.readWrite(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, functionalMap.data)));
    }
 
    @Override

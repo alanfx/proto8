@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 public interface Observable<T> {
 
    Subscription subscribe(Observer<? super T> observer);
+   Subscription subscribe(Subscriber<? super T> subscriber);
 
    interface Subscription {
       void unsubscribe();
@@ -12,9 +13,9 @@ public interface Observable<T> {
    }
 
    interface Observer<T> {
-      void onCompleted();
-      void onError(Throwable e);
-      void onNext(T t);
+      default void onCompleted() {}
+      default void onError(Throwable e) {}
+      default void onNext(T t) {}
    }
 
    default Subscription subscribe(Consumer<? super T> onNext, Consumer<Throwable> onError, Runnable onComplete) {
@@ -39,6 +40,20 @@ public interface Observable<T> {
          @Override  public void onError(Throwable e) { throw new IllegalStateException(); }
          @Override  public void onNext(T t) { onNext.accept(t); }
       });
+   }
+
+   abstract class Subscriber<T> implements Observer<T>, Subscription {
+      private volatile boolean unsubscribed;
+
+      @Override
+      public void unsubscribe() {
+         unsubscribed = true;
+      }
+
+      @Override
+      public boolean isUnsubscribed() {
+         return unsubscribed;
+      }
    }
 
 }

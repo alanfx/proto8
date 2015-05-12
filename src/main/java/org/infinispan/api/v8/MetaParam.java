@@ -1,5 +1,7 @@
 package org.infinispan.api.v8;
 
+import java.util.Optional;
+
 public interface MetaParam<P> {
 
    <T> Id<T> id();
@@ -182,6 +184,11 @@ public interface MetaParam<P> {
       public int hashCode() {
          return (int) (value ^ (value >>> 32));
       }
+   }
+
+   interface Lookup {
+      <T> T getMetaParam(MetaParam.Id<T> id);
+      <T> Optional<T> findMetaParam(MetaParam.Id<T> id);
    }
 
 }

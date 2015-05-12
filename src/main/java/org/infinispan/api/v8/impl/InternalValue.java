@@ -1,10 +1,15 @@
 package org.infinispan.api.v8.impl;
 
-final class InternalEntry<V> {
+import org.infinispan.api.v8.MetaParam;
+import org.infinispan.api.v8.Value;
+
+import java.util.Optional;
+
+final class InternalValue<V> implements Value<V> {
    final V value;
    final MetaParams metaParams;
 
-   InternalEntry(V value, MetaParams metaParams) {
+   InternalValue(V value, MetaParams metaParams) {
       this.value = value;
       this.metaParams = metaParams;
    }
@@ -14,7 +19,7 @@ final class InternalEntry<V> {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
 
-      InternalEntry<?> that = (InternalEntry<?>) o;
+      InternalValue<?> that = (InternalValue<?>) o;
 
       if (!value.equals(that.value)) return false;
       return metaParams.equals(that.metaParams);
@@ -30,9 +35,25 @@ final class InternalEntry<V> {
 
    @Override
    public String toString() {
-      return "InternalEntry{" +
+      return "InternalValue{" +
          "value=" + value +
          ", metaParams=" + metaParams +
          '}';
    }
+
+   @Override
+   public V get() {
+      return value;
+   }
+
+   @Override
+   public <T> T getMetaParam(MetaParam.Id<T> id) {
+      return metaParams.get(id);
+   }
+
+   @Override
+   public <T> Optional<T> findMetaParam(MetaParam.Id<T> id) {
+      return metaParams.find(id);
+   }
+
 }

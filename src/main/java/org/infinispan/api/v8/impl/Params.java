@@ -8,10 +8,7 @@ import java.util.List;
 class Params {
 
    private static final Param<?>[] DEFAULTS = new Param<?>[]{
-//      Param.AccessMode.defaultValue(),
       Param.WaitMode.defaultValue(),
-      Param.StreamMode.defaultValue(),
-//      Param.Lifespan.defaultValue()
    };
 
    final Param<?>[] params;

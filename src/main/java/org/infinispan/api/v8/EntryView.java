@@ -1,19 +1,26 @@
 package org.infinispan.api.v8;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 // Using Void returns instead of void in order to avoid, as much as possible,
 // the need to add `Consumer` overloaded methods in FunCache
 public class EntryView {
 
-   public interface ReadEntryView<V> {
+   public interface ReadEntryView<K, V> extends MetaParam.Lookup {
+      K key();
+
+      /**
+       *
+       * @throws NoSuchElementException
+       */
+      V get();
+
       /**
        * Optional value. It'll return a non-empty value when the value is present,
        * and empty when the value is not present.
        */
-      Optional<V> get();
-      <T> T getMetaParam(MetaParam.Id<T> id);
-      <T> Optional<T> findMetaParam(MetaParam.Id<T> id);
+      Optional<V> find();
    }
 
    public interface WriteEntryView<V> {
@@ -35,6 +42,6 @@ public class EntryView {
       Void remove();
    }
 
-   public interface ReadWriteEntryView<V> extends ReadEntryView<V>, WriteEntryView<V> {}
+   public interface ReadWriteEntryView<K, V> extends ReadEntryView<K, V>, WriteEntryView<V> {}
 
 }

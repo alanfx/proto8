@@ -42,7 +42,7 @@ public class FunctionalMapTest {
     */
    @Test
    public void testReadOnlyGetsEmpty() {
-      await(readOnlyMap.eval(1, ReadEntryView::get).thenAccept(v -> assertEquals(Optional.empty(), v)));
+      await(readOnlyMap.eval(1, ReadEntryView::find).thenAccept(v -> assertEquals(Optional.empty(), v)));
    }
 
    /**
@@ -55,7 +55,7 @@ public class FunctionalMapTest {
          writeOnlyMap.eval(1, writeView -> writeView.set("one")).thenCompose(r ->
                readOnlyMap.eval(1, ReadEntryView::get).thenAccept(v -> {
                      assertNull(r);
-                     assertEquals(Optional.of("one"), v);
+                     assertEquals("one", v);
                   }
                )
          )
@@ -70,11 +70,12 @@ public class FunctionalMapTest {
    public void testWriteOnlyNonCapturingValueAndMetadataReadOnlyValueAndMetadata() {
       await(
          writeOnlyMap.eval(1, "one", (v, writeView) -> writeView.set(v, new Lifespan(1000))).thenCompose(r ->
-               readOnlyMap.eval(1, view -> view).thenAccept(view -> {
+               readOnlyMap.eval(1, ro -> ro).thenAccept(ro -> {
                      assertNull(r);
-                     assertEquals(Optional.of("one"), view.get());
-                     assertEquals(Optional.of(new Lifespan(1000)), view.findMetaParam(Lifespan.ID));
-                     assertEquals(new Lifespan(1000), view.getMetaParam(Lifespan.ID));
+                     assertEquals(Optional.of("one"), ro.find());
+                     assertEquals("one", ro.get());
+                     assertEquals(Optional.of(new Lifespan(1000)), ro.findMetaParam(Lifespan.ID));
+                     assertEquals(new Lifespan(1000), ro.getMetaParam(Lifespan.ID));
                   }
                )
          )
@@ -86,7 +87,7 @@ public class FunctionalMapTest {
     */
    @Test
    public void testReadWriteGetsEmpty() {
-      await(readWriteMap.eval(1, ReadWriteEntryView::get).thenAccept(v -> assertEquals(Optional.empty(), v)));
+      await(readWriteMap.eval(1, ReadWriteEntryView::find).thenAccept(v -> assertEquals(Optional.empty(), v)));
    }
 
    /**
@@ -97,13 +98,13 @@ public class FunctionalMapTest {
    public void testReadWriteValuesReturnPreviousAndGet() {
       await(
          readWriteMap.eval(1, readWrite -> {
-            Optional<String> prev = readWrite.get();
+            Optional<String> prev = readWrite.find();
             readWrite.set("one");
             return prev;
          }).thenCompose(r ->
                readWriteMap.eval(1, ReadWriteEntryView::get).thenAccept(v -> {
                      assertFalse(r.isPresent());
-                     assertEquals(Optional.of("one"), v);
+                     assertEquals("one", v);
                   }
                )
          )
@@ -118,19 +119,19 @@ public class FunctionalMapTest {
    @Test
    public void testReadWriteAllowsForConditionalParameterBasedReplace() {
       replaceWithVersion(100, rw -> {
-            assertEquals(Optional.of("uno"), rw.get());
-            assertEquals(Optional.of(new EntryVersionParam<>(new NumericEntryVersion(200))),
-               rw.findMetaParam(EntryVersionParam.ID()));
+            assertEquals("uno", rw.get());
+            assertEquals(new EntryVersionParam<>(new NumericEntryVersion(200)),
+               rw.getMetaParam(EntryVersionParam.ID()));
          }
       );
       replaceWithVersion(900, rw -> {
-         assertEquals(Optional.of("one"), rw.get());
+         assertEquals(Optional.of("one"), rw.find());
          assertEquals(Optional.of(new EntryVersionParam<>(new NumericEntryVersion(100))),
             rw.findMetaParam(EntryVersionParam.ID()));
       });
    }
 
-   private void replaceWithVersion(long version, Consumer<ReadWriteEntryView<String>> asserts) {
+   private void replaceWithVersion(long version, Consumer<ReadWriteEntryView<Integer, String>> asserts) {
       await(
          readWriteMap.eval(1, rw -> rw.set("one", new EntryVersionParam<>(new NumericEntryVersion(100)))).thenCompose(r ->
             readWriteMap.eval(1, rw -> {

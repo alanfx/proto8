@@ -1,12 +1,11 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
-import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -26,25 +25,25 @@ public class WriteOnlyMapImpl<K, V> implements WriteOnlyMap<K, V> {
    }
 
    public static <K, V> WriteOnlyMap<K, V> create(FunctionalMapImpl<K, V> functionalMap) {
-      return new WriteOnlyMapImpl<K, V>(Params.from(functionalMap.params.params), functionalMap);
+      return new WriteOnlyMapImpl<>(Params.from(functionalMap.params.params), functionalMap);
    }
 
    private static <K, V> WriteOnlyMap<K, V> create(Params params, FunctionalMapImpl<K, V> functionalMap) {
-      return new WriteOnlyMapImpl<K, V>(params, functionalMap);
+      return new WriteOnlyMapImpl<>(params, functionalMap);
    }
 
    @Override
    public <R> CompletableFuture<R> eval(K key, Function<WriteEntryView<V>, R> f) {
       System.out.printf("[W] Invoked eval(k=%s, %s)%n", key, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(Values.writeOnly(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.writeOnly(key, functionalMap.data)));
    }
 
    @Override
    public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, WriteEntryView<V>, R> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(value, Values.writeOnly(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.writeOnly(key, functionalMap.data)));
    }
 
    @Override
@@ -56,8 +55,24 @@ public class WriteOnlyMapImpl<K, V> implements WriteOnlyMap<K, V> {
             return new Observable<R>() {
                @Override
                public Subscription subscribe(Observer<? super R> observer) {
-                  m.entrySet().forEach(e ->
-                     f.apply(e.getValue(), Values.writeOnly(e.getKey(), functionalMap.data)));
+                  m.entrySet().forEach(e -> {
+                     R result = f.apply(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     observer.onNext(result);
+                  });
+                  observer.onCompleted();
+                  return null;
+               }
+
+               @Override
+               public Subscription subscribe(Subscriber<? super R> subscriber) {
+                  Iterator<? extends Map.Entry<? extends K, ? extends V>> it = m.entrySet().iterator();
+                  while (it.hasNext() && !subscriber.isUnsubscribed()) {
+                     Map.Entry<? extends K, ? extends V> e = it.next();
+                     R result = f.apply(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     subscriber.onNext(result);
+                  }
+
+                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
                   return null;
                }
             };

@@ -1,7 +1,10 @@
 package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.FunctionalMap;
+import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
+import org.infinispan.api.v8.util.Tuple;
+import org.infinispan.api.v8.util.Tuples;
 
 import javax.cache.Cache;
 import javax.cache.CacheManager;
@@ -11,33 +14,43 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class JCacheDecorator<K, V> implements Cache<K, V> {
 
-   final FunctionalMap<K, V> readOnly;
+   final FunctionalMap.ReadOnlyMap<K, V> readOnly;
+   final FunctionalMap.WriteOnlyMap<K, V> writeOnly;
+   final FunctionalMap.ReadWriteMap<K, V> readWrite;
 
-   public JCacheDecorator(FunctionalMap<K, V> map) {
-      this.readOnly = map.withParams(Param.WaitMode.BLOCKING);
-//      this.writeOnly = map.withParams(Param.AccessMode.WRITE_ONLY, Param.WaitMode.BLOCKING);
-//      this.readWrite = map.withParams(Param.AccessMode.READ_WRITE, Param.WaitMode.BLOCKING);
+   public JCacheDecorator(FunctionalMapImpl<K, V> map) {
+      FunctionalMapImpl<K, V> blockingMap = map.withParams(Param.WaitMode.BLOCKING);
+      this.readOnly = ReadOnlyMapImpl.create(blockingMap);
+      this.writeOnly = WriteOnlyMapImpl.create(blockingMap);
+      this.readWrite = ReadWriteMapImpl.create(blockingMap);
    }
 
    @Override
    public V get(K key) {
-      return null;  // TODO: Customise this generated block
+      return await(readOnly.eval(key, ro -> ro.find().orElse(null)));
    }
 
    @Override
    public Map<K, V> getAll(Set<? extends K> keys) {
-      return null;  // TODO: Customise this generated block
+      Observable<Tuple<K, V>> obs = readOnly.evalMany(keys, ro -> Tuples.of(ro.key(), ro.get()));
+      Map<K, V> map = new HashMap<>();
+      obs.subscribe(tuple -> map.put(tuple.a(), tuple.b())); // Wait mode is BLOCKING, so will block until completed
+      return map;
    }
 
    @Override
    public boolean containsKey(K key) {
-      return false;  // TODO: Customise this generated block
+      return await(readOnly.eval(key, e -> e.find().isPresent()));
    }
 
    @Override
@@ -47,52 +60,92 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void put(K key, V value) {
-      // TODO: Customise this generated block
+      await(writeOnly.eval(key, value, (v, wo) -> {
+         wo.set(v);
+         return null;
+      }));
    }
 
    @Override
    public V getAndPut(K key, V value) {
-      return null;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, value, (v, rw) -> {
+         V prev = rw.find().orElse(null);
+         rw.set(v);
+         return prev;
+      }));
    }
 
    @Override
    public void putAll(Map<? extends K, ? extends V> map) {
-      // TODO: Customise this generated block
+      Observable<Void> obs = writeOnly.evalMany(map, (ev, v) -> v.set(ev));
+      obs.subscribe(Observers.noop()); // Wait mode is BLOCKING, so will block until completed
    }
 
    @Override
    public boolean putIfAbsent(K key, V value) {
-      return false;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, value, (v, rw) -> {
+         Optional<V> opt = rw.find();
+         boolean success = !opt.isPresent();
+         if (success) rw.set(v);
+         return success;
+      }));
    }
 
    @Override
    public boolean remove(K key) {
-      return false;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, v -> {
+         boolean success = v.find().isPresent();
+         v.remove();
+         return success;
+      }));
    }
 
    @Override
    public boolean remove(K key, V oldValue) {
-      return false;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, oldValue, (v, rw) -> rw.find().map(prev -> {
+         if (prev.equals(v)) {
+            rw.remove();
+            return true;
+         }
+
+         return false;
+      }).orElse(false)));
    }
 
    @Override
    public V getAndRemove(K key) {
-      return null;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, v -> {
+         V prev = v.find().orElse(null);
+         v.remove();
+         return prev;
+      }));
    }
 
    @Override
    public boolean replace(K key, V oldValue, V newValue) {
-      return false;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, newValue, (v, rw) -> rw.find().map(prev -> {
+         if (prev.equals(oldValue)) {
+            rw.set(v);
+            return true;
+         }
+         return false;
+      }).orElse(false)));
    }
 
    @Override
    public boolean replace(K key, V value) {
-      return false;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, value, (v, rw) -> rw.find().map(prev -> {
+         rw.set(v);
+         return true;
+      }).orElse(false)));
    }
 
    @Override
    public V getAndReplace(K key, V value) {
-      return null;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, value, (v, rw) -> rw.find().map(prev -> {
+         rw.set(v);
+         return prev;
+      }).orElse(null)));
    }
 
    @Override
@@ -164,4 +217,13 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    public Iterator<Entry<K, V>> iterator() {
       return null;  // TODO: Customise this generated block
    }
+
+   private static <T> T await(CompletableFuture<T> cf) {
+      try {
+         return cf.get();
+      } catch (InterruptedException | ExecutionException e) {
+         throw new Error(e);
+      }
+   }
+
 }

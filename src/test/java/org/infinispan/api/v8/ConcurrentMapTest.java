@@ -119,23 +119,24 @@ public class ConcurrentMapTest {
       data.put(1, "one");
       data.put(2, "two");
       data.put(3, "three");
+      data.put(33, "three");
       map.putAll(data);
 
       Set<Integer> keys = map.keySet();
-      assertEquals(3, keys.size());
+      assertEquals(4, keys.size());
       Set<Integer> expectedKeys = new HashSet<>(Arrays.asList(1, 2, 3));
       keys.forEach(expectedKeys::remove);
       assertEquals(true, expectedKeys.isEmpty());
 
       assertEquals(false, map.isEmpty());
       Collection<String> values = map.values();
-      assertEquals(3, values.size());
+      assertEquals(4, values.size());
       Set<String> expectedValues = new HashSet<>(Arrays.asList("one", "two", "three"));
       values.forEach(expectedValues::remove);
       assertEquals(true, expectedValues.isEmpty());
 
       Set<Map.Entry<Integer, String>> entries = map.entrySet();
-      assertEquals(3, entries.size());
+      assertEquals(4, entries.size());
       entries.removeAll(data.entrySet());
       assertEquals(true, entries.isEmpty());
    }
