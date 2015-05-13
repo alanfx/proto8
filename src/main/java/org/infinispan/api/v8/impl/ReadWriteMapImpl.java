@@ -1,9 +1,13 @@
 package org.infinispan.api.v8.impl;
 
+import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
+import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -40,6 +44,21 @@ public class ReadWriteMapImpl<K, V> implements ReadWriteMap<K, V> {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
       return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, functionalMap.data)));
+   }
+
+   @Override
+   public <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override
+   public <R> Observable<R> evalMany(Set<? extends K> m, Function<ReadWriteEntryView<K, V>, R> f) {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override
+   public Observable<ReadWriteEntryView<K, V>> entries() {
+      return null;  // TODO: Customise this generated block
    }
 
    @Override

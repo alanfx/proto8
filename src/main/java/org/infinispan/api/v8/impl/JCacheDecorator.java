@@ -1,10 +1,11 @@
 package org.infinispan.api.v8.impl;
 
+import org.infinispan.api.v8.EntryView;
+import org.infinispan.api.v8.EntryView.ReadEntryView;
+import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
-import org.infinispan.api.v8.util.Tuple;
-import org.infinispan.api.v8.util.Tuples;
 
 import javax.cache.Cache;
 import javax.cache.CacheManager;
@@ -42,9 +43,9 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public Map<K, V> getAll(Set<? extends K> keys) {
-      Observable<Tuple<K, V>> obs = readOnly.evalMany(keys, ro -> Tuples.of(ro.key(), ro.get()));
+      Observable<ReadEntryView<K, V>> obs = readOnly.evalMany(keys, ro -> ro);
       Map<K, V> map = new HashMap<>();
-      obs.subscribe(tuple -> map.put(tuple.a(), tuple.b())); // Wait mode is BLOCKING, so will block until completed
+      obs.subscribe(ro -> map.put(ro.key(), ro.get())); // Wait mode is BLOCKING, so will block until completed
       return map;
    }
 
@@ -54,16 +55,8 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public void loadAll(Set<? extends K> keys, boolean replaceExistingValues, CompletionListener completionListener) {
-      // TODO: Customise this generated block
-   }
-
-   @Override
    public void put(K key, V value) {
-      await(writeOnly.eval(key, value, (v, wo) -> {
-         wo.set(v);
-         return null;
-      }));
+      await(writeOnly.eval(key, value, (v, wo) -> wo.set(v)));
    }
 
    @Override
@@ -150,12 +143,14 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void removeAll(Set<? extends K> keys) {
-      // TODO: Customise this generated block
+      Observable<Void> obs = writeOnly.evalMany(keys, WriteEntryView::remove);
+      obs.subscribe(Observers.noop()); // Wait mode is BLOCKING, so will block until completed
    }
 
    @Override
    public void removeAll() {
-      // TODO: Customise this generated block
+      Observable<WriteEntryView<V>> values = writeOnly.values();
+      values.subscribe(WriteEntryView::remove); // Wait mode is BLOCKING, so will block until completed
    }
 
    @Override
@@ -164,7 +159,7 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public <C extends Configuration<K, V>> C getConfiguration(Class<C> clazz) {
+   public Iterator<Entry<K, V>> iterator() {
       return null;  // TODO: Customise this generated block
    }
 
@@ -175,6 +170,16 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public <T> Map<K, EntryProcessorResult<T>> invokeAll(Set<? extends K> keys, EntryProcessor<K, V, T> entryProcessor, Object... arguments) {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override
+   public void loadAll(Set<? extends K> keys, boolean replaceExistingValues, CompletionListener completionListener) {
+      // TODO: Customise this generated block
+   }
+
+   @Override
+   public <C extends Configuration<K, V>> C getConfiguration(Class<C> clazz) {
       return null;  // TODO: Customise this generated block
    }
 
@@ -211,11 +216,6 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    @Override
    public void deregisterCacheEntryListener(CacheEntryListenerConfiguration<K, V> cacheEntryListenerConfiguration) {
       // TODO: Customise this generated block
-   }
-
-   @Override
-   public Iterator<Entry<K, V>> iterator() {
-      return null;  // TODO: Customise this generated block
    }
 
    private static <T> T await(CompletableFuture<T> cf) {

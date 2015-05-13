@@ -4,9 +4,15 @@ import org.infinispan.api.v8.impl.FunctionalMapImpl;
 import org.infinispan.api.v8.impl.JCacheDecorator;
 import org.junit.Test;
 
+import javax.cache.*;
+import javax.cache.Cache;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.EntryProcessorException;
+import javax.cache.processor.MutableEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 
 import static org.junit.Assert.*;
@@ -132,7 +138,7 @@ public class JCacheTest {
    }
 
    @Test
-   public void testPutAllGetAll() {
+   public void testPutAllGetAllRemoveAll() {
       assertTrue(jcache.getAll(new HashSet<>(Arrays.asList(1, 2, 3))).isEmpty());
       assertTrue(jcache.getAll(new HashSet<>()).isEmpty());
 
@@ -176,6 +182,77 @@ public class JCacheTest {
       assertEquals("four", res2.get(4));
       assertEquals("five", res2.get(5));
       assertEquals("five", res2.get(55));
+
+      // Remove all passing no keys
+      jcache.removeAll(new HashSet<>());
+      Map<Integer, String> res3 = jcache.getAll(new HashSet<>(Arrays.asList(1, 2, 3, 4, 5, 55)));
+      assertFalse(res3.isEmpty());
+      assertEquals(6, res3.size());
+
+      // Remove all passing subset of keys
+      jcache.removeAll(new HashSet<>(Arrays.asList(3, 4, 5, 55)));
+      Map<Integer, String> res4 = jcache.getAll(new HashSet<>(Arrays.asList(1, 2, 3, 4, 5, 55)));
+      assertFalse(res4.isEmpty());
+      assertEquals(2, res4.size());
+      assertEquals("one", res4.get(1));
+      assertEquals("two", res4.get(2));
+
+      // Remove all the keys
+      jcache.removeAll();
+      Map<Integer, String> res5 = jcache.getAll(new HashSet<>(Arrays.asList(1, 2, 3, 4, 5, 55)));
+      assertTrue(res5.isEmpty());
+      assertEquals(0, res5.size());
+   }
+
+   @Test
+   public void testIterator() {
+      assertFalse(jcache.iterator().hasNext());
+      Map<Integer, String> data = new HashMap<>();
+      data.put(1, "one");
+      data.put(2, "two");
+      data.put(3, "three");
+      data.put(4, "four");
+      data.put(5, "five");
+      data.put(55, "five");
+      jcache.putAll(data);
+
+      Map<Integer, String> res0 = new HashMap<>();
+      for (Cache.Entry<Integer, String> e : jcache)
+         res0.put(e.getKey(), e.getValue());
+
+      assertEquals(data, res0);
+   }
+
+   @Test
+   public void testInvoke() {
+      // Get via invoke
+      String res0 = jcache.invoke(1, (entry, args) -> entry.getValue());
+      assertEquals(null, res0);
+
+      // Put via invoke
+      jcache.invoke(1, (entry, args) -> {
+         entry.setValue((String) args[0]);
+         return null;
+      }, "one");
+
+      // Get via invoke
+      String res1 = jcache.invoke(1, (entry, args) -> entry.getValue());
+      assertEquals("one", res1);
+
+      // Remove via invoke
+      jcache.invoke(1, (entry, args) -> {
+         entry.remove();
+         return null;
+      });
+
+      // Get via invoke
+      String res2 = jcache.invoke(1, (entry, args) -> entry.getValue());
+      assertEquals(null, res2);
+   }
+
+   @Test
+   public void testInvokeAll() {
+      throw new AssertionError();
    }
 
 }

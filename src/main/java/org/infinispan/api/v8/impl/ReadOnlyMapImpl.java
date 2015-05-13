@@ -5,16 +5,11 @@ import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
-import org.infinispan.api.v8.Value;
-import org.infinispan.api.v8.util.Tuple;
-import org.infinispan.api.v8.util.Tuples;
 
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
@@ -45,7 +40,7 @@ public class ReadOnlyMapImpl<K, V> implements ReadOnlyMap<K, V> {
    }
 
    @Override
-   public <R> Observable<R> evalMany(Collection<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
+   public <R> Observable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
       System.out.printf("[R] Invoked evalMany(m=%s, %s)%n", s, params);
       Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
@@ -115,54 +110,25 @@ public class ReadOnlyMapImpl<K, V> implements ReadOnlyMap<K, V> {
    }
 
    @Override
-   public Observable<Value<V>> values() {
-      System.out.printf("[R] Invoked values(%s)%n", params);
-      Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            return new Observable<Value<V>>() {
-               @Override
-               public Subscription subscribe(Observer<? super Value<V>> observer) {
-                  functionalMap.data.forEach((k, v) -> observer.onNext(v));
-                  observer.onCompleted();
-                  return null;
-               }
-
-               @Override
-               public Subscription subscribe(Subscriber<? super Value<V>> subscriber) {
-                  Iterator<InternalValue<V>> it = functionalMap.data.values().iterator();
-                  while (it.hasNext() && !subscriber.isUnsubscribed())
-                     subscriber.onNext(it.next());
-
-                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
-                  return null;
-               }
-            };
-         default:
-            throw new IllegalStateException();
-      }
-   }
-
-   @Override
-   public Observable<Tuple<K, Value<V>>> entries() {
+   public Observable<ReadEntryView<K, V>> entries() {
       System.out.printf("[R] Invoked entries(%s)%n", params);
       Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<Tuple<K, Value<V>>>() {
+            return new Observable<ReadEntryView<K, V>>() {
                @Override
-               public Subscription subscribe(Observer<? super Tuple<K, Value<V>>> observer) {
-                  functionalMap.data.forEach((k, v) -> observer.onNext(Tuples.of(k, (Value<V>) v)));
+               public Subscription subscribe(Observer<? super ReadEntryView<K, V>> observer) {
+                  functionalMap.data.forEach((k, v) -> observer.onNext(EntryViews.readOnly(k, v)));
                   observer.onCompleted();
                   return null;
                }
 
                @Override
-               public Subscription subscribe(Subscriber<? super Tuple<K, Value<V>>> subscriber) {
+               public Subscription subscribe(Subscriber<? super ReadEntryView<K, V>> subscriber) {
                   Iterator<Map.Entry<K, InternalValue<V>>> it = functionalMap.data.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
                      Map.Entry<K, InternalValue<V>> entry = it.next();
-                     subscriber.onNext(Tuples.of(entry.getKey(), (Value<V>) entry.getValue()));
+                     subscriber.onNext(EntryViews.readOnly(entry.getKey(), entry.getValue()));
                   }
 
                   if (!subscriber.isUnsubscribed()) subscriber.onCompleted();

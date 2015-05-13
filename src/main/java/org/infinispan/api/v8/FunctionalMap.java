@@ -3,15 +3,14 @@ package org.infinispan.api.v8;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
-import org.infinispan.api.v8.util.Tuple;
 
-import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface FunctionalMap<K, V> extends AutoCloseable {
@@ -44,8 +43,12 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#getAll(Set)}.
+       *
+       * DESIGN RATIONALE: It makes sense to expose global operation like this
+       * instead of forcing users to iterate over the keys to lookup and call
+       * get individually since Infinispan can do things more efficiently.
        */
-      <R> Observable<R> evalMany(Collection<? extends K> s, Function<ReadEntryView<K, V>, R> f);
+      <R> Observable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f);
 
       /**
        * {@link ConcurrentMap#size()},
@@ -57,34 +60,17 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       /**
        * {@link ConcurrentMap#containsValue(Object)},
        * {@link ConcurrentMap#values()},
-       */
-      Observable<Value<V>> values();
-
-      /**
        * {@link ConcurrentMap#entrySet()},
        */
-      Observable<Tuple<K, Value<V>>> entries();
+      Observable<ReadEntryView<K, V>> entries();
 
-//      /**
-//       * This method can be used to implement {@link ConcurrentMap#isEmpty()}.
-//       */
-//      <R> CompletableFuture<Optional<R>> findKeys(Function<K, Optional<R>> f);
-//
-//      /**
-//       * This method can be used to implement {@link ConcurrentMap#containsValue(Object)}.
-//       */
-//      <R> CompletableFuture<Optional<R>> findValues(Function<V, Optional<R>> f);
-//
-//      /**
-//       * This method can be used to implement {@link ConcurrentMap#size()},
-//       * {@link ConcurrentMap#keySet()}.
-//       */
-//      <R> CompletableFuture<R> reduceKeys(R z, BiFunction<K, R, R> f);
-//
-//      /**
-//       * This method can be used to implement...
-//       */
-//      <R> CompletableFuture<R> reduceValues(R z, BiFunction<V, R, R> f);
+      // DESIGN RATIONALE: Why no values() method?
+      // Having keys() makes sense since that way we can have an observe all
+      // keys without having to bring values. Having entries() makes sense
+      // since it allows you to observe on both keys and values, but this is
+      // no extra cost to exposing just values since keys are the main index
+      // and hence will always be available. Hence, adding values() offers
+      // nothing extra to the API.
    }
 
    interface WriteOnlyMap<K, V> extends FunctionalMap<K, V> {
@@ -101,10 +87,23 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * <li></li>
        * <li></li>
        * </ul>
+       *
+       * DESIGN RATIONALES:
+       * <ul>
+       * <li>Since this is a write-only operation, no entry attributes can be
+       * queried, hence the only reasonable thing can be returned is Void.</li>
+       * </ul>
        */
-      <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, WriteEntryView<V>, R> f);
+      CompletableFuture<Void> eval(K key, V value, BiConsumer<V, WriteEntryView<V>> f);
 
-      <R> CompletableFuture<R> eval(K key, Function<WriteEntryView<V>, R> f);
+      /**
+       * DESIGN RATIONALES:
+       * <ul>
+       * <li>Since this is a write-only operation, no entry attributes can be
+       * queried, hence the only reasonable thing can be returned is Void.</li>
+       * </ul>
+       */
+      CompletableFuture<Void> eval(K key, Consumer<WriteEntryView<V>> f);
 
       /**
        * Evaluate a function... TODO...
@@ -115,8 +114,44 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * <li>{@link ConcurrentMap#putAll(Map)}</li>
        * <li>{@link javax.cache.Cache#putAll(Map)}</li>
        * </ul>
+       *
+       * DESIGN RATIONALE:
+       * <ul>
+       * <li>It makes sense to expose global operation like this
+       * instead of forcing users to iterate over the keys to lookup and call
+       * get individually since Infinispan can do things more efficiently.</li>
+       * <li>Since this is a write-only operation, no entry attributes can be
+       * queried, hence the only reasonable thing can be returned is Void.</li>
+       * <li>It still makes sense to return Observable<Void> instead of
+       * CompletableFuture<Void> in case the user wants to do something as each
+       * entry gets consumed, e.g. keep track of progress.</li>
+       * </ul>
        */
-      <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, WriteEntryView<V>, R> f);
+      Observable<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
+
+      /**
+       * This method can be used to implement operations such as
+       * {@link javax.cache.Cache#removeAll(Set)}.
+       *
+       * DESIGN RATIONALE:
+       * <ul>
+       * <li>It makes sense to expose global operation like this
+       * instead of forcing users to iterate over the keys to lookup and call
+       * get individually since Infinispan can do things more efficiently.</li>
+       * <li>Since this is a write-only operation, no entry attributes can be
+       * queried, hence the only reasonable thing can be returned is Void.</li>
+       * <li>It still makes sense to return Observable<Void> instead of
+       * CompletableFuture<Void> in case the user wants to do something as each
+       * entry gets consumed, e.g. keep track of progress.</li>
+       * </ul>
+       */
+      Observable<Void> evalMany(Set<? extends K> m, Consumer<WriteEntryView<V>> f);
+
+      /**
+       * This method can be used to implement operations such as
+       * {@link javax.cache.Cache#removeAll()}.
+       */
+      Observable<WriteEntryView<V>> values();
 
       /**
        * This method can be used to implement {@link ConcurrentMap#clear()}.
@@ -164,6 +199,21 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * </ul>
        */
       <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
+
+      /**
+       * TODO: Put a set of keys returning previous values/metaparams
+       */
+      <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
+
+      /**
+       * TODO: Remove a set of keys returning previous values/metaparams
+       */
+      <R> Observable<R> evalMany(Set<? extends K> m, Function<ReadWriteEntryView<K, V>, R> f);
+
+      /**
+       * TODO: Remove all cached entries individually returning previous values/metaparams
+       */
+      Observable<ReadWriteEntryView<K, V>> entries();
    }
 
 }

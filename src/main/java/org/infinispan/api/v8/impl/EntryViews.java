@@ -44,7 +44,7 @@ class EntryViews {
 
       @Override
       public V get() {
-         V curr = entry.get();
+         V curr = entry.value;
          if (curr == null)
             throw new NoSuchElementException("No value present");
 
@@ -75,7 +75,7 @@ class EntryViews {
       public Void set(V value, MetaParam.Writable... metas) {
          MetaParams metaParams = MetaParams.empty();
          metaParams.addMany(metas);
-         data.put(key, new InternalValue<V>(value, metaParams));
+         data.put(key, new InternalValue<>(value, metaParams));
          return null;
       }
 
@@ -111,9 +111,9 @@ class EntryViews {
          InternalValue<V> prev = data.get(key);
          if (prev != null) {
             prev.metaParams.addMany(metas);
-            data.put(key, new InternalValue<V>(value, prev.metaParams));
+            data.put(key, new InternalValue<>(value, prev.metaParams));
          } else {
-            data.put(key, new InternalValue<V>(value, MetaParams.of(metas)));
+            data.put(key, new InternalValue<>(value, MetaParams.of(metas)));
          }
          return null;
       }

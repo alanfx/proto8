@@ -1,11 +1,10 @@
 package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.MetaParam;
-import org.infinispan.api.v8.Value;
 
 import java.util.Optional;
 
-final class InternalValue<V> implements Value<V> {
+final class InternalValue<V> implements MetaParam.Lookup {
    final V value;
    final MetaParams metaParams;
 
@@ -39,11 +38,6 @@ final class InternalValue<V> implements Value<V> {
          "value=" + value +
          ", metaParams=" + metaParams +
          '}';
-   }
-
-   @Override
-   public V get() {
-      return value;
    }
 
    @Override

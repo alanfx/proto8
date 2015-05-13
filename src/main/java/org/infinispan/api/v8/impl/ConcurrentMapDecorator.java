@@ -1,5 +1,6 @@
 package org.infinispan.api.v8.impl;
 
+import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
@@ -7,8 +8,6 @@ import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Observable.Observer;
 import org.infinispan.api.v8.Observable.Subscriber;
 import org.infinispan.api.v8.Param.WaitMode;
-import org.infinispan.api.v8.Value;
-import org.infinispan.api.v8.util.Tuple;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,13 +71,13 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public boolean containsValue(Object value) {
-      Observable<Value<V>> values = readOnly.values();
-      FindValueSubscriber<V> subs = new FindValueSubscriber<>(value);
+      Observable<ReadEntryView<K, V>> values = readOnly.entries();
+      FindValueSubscriber<K, V> subs = new FindValueSubscriber<>(value);
       values.subscribe(subs); // Wait mode is BLOCKING, so will block until completed
       return subs.found;
    }
 
-   private static final class FindValueSubscriber<V> extends Subscriber<Value<V>> {
+   private static final class FindValueSubscriber<K, V> extends Subscriber<ReadEntryView<K, V>> {
       final Object valueToFind;
       boolean found = false;
 
@@ -86,7 +85,7 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
          this.valueToFind = valueToFind;
       }
 
-      @Override public void onNext(Value<V> t) {
+      @Override public void onNext(ReadEntryView<K, V> t) {
          if (valueToFind.equals(t.get())) {
             found = true;
             this.unsubscribe();
@@ -148,31 +147,31 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public Collection<V> values() {
-      Observable<Value<V>> values = readOnly.values();
+      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
       Collection<V> c = new ArrayList<>();
-      values.subscribe(v -> c.add(v.get())); // Wait mode is BLOCKING, so will block until completed
+      entries.subscribe(v -> c.add(v.get())); // Wait mode is BLOCKING, so will block until completed
       return c;
    }
 
    @Override
    public Set<Entry<K, V>> entrySet() {
-      Observable<Tuple<K, Value<V>>> entries = readOnly.entries();
+      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
       Set<Entry<K, V>> set = new HashSet<>();
-      entries.subscribe(kv -> set.add(new Entry<K, V>() {
+      entries.subscribe(ro -> set.add(new Entry<K, V>() {
          @Override
          public K getKey() {
-            return kv.a();
+            return ro.key();
          }
 
          @Override
          public V getValue() {
-            return kv.b().get();
+            return ro.get();
          }
 
          @Override
          public V setValue(V value) {
-            V prev = kv.b().get();
-            writeOnly.eval(kv.a(), value, (v, wo) -> wo.set(v));
+            V prev = ro.get();
+            writeOnly.eval(ro.key(), value, (v, wo) -> wo.set(v));
             return prev;
          }
 
@@ -182,8 +181,8 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
                return true;
             if (o instanceof Map.Entry) {
                Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-               if (Objects.equals(kv.a(), e.getKey()) &&
-                  Objects.equals(kv.b().get(), e.getValue()))
+               if (Objects.equals(ro.key(), e.getKey()) &&
+                  Objects.equals(ro.get(), e.getValue()))
                   return true;
             }
             return false;
@@ -191,7 +190,7 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
          @Override
          public int hashCode() {
-            return kv.hashCode();
+            return ro.hashCode();
          }
       }));
 

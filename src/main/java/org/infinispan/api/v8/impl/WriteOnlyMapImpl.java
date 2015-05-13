@@ -1,14 +1,19 @@
 package org.infinispan.api.v8.impl;
 
+import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
+import org.infinispan.api.v8.Param.WaitMode;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.infinispan.api.v8.Param.WaitMode.ID;
@@ -33,43 +38,114 @@ public class WriteOnlyMapImpl<K, V> implements WriteOnlyMap<K, V> {
    }
 
    @Override
-   public <R> CompletableFuture<R> eval(K key, Function<WriteEntryView<V>, R> f) {
+   public CompletableFuture<Void> eval(K key, Consumer<WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked eval(k=%s, %s)%n", key, params);
-      Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.writeOnly(key, functionalMap.data)));
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
+      return withWaitMode(waitMode.get(), () -> {
+         f.accept(EntryViews.writeOnly(key, functionalMap.data));
+         return null;
+      });
    }
 
    @Override
-   public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, WriteEntryView<V>, R> f) {
+   public CompletableFuture<Void> eval(K key, V value, BiConsumer<V, WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
-      Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.writeOnly(key, functionalMap.data)));
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
+      return withWaitMode(waitMode.get(), () -> {
+         f.accept(value, EntryViews.writeOnly(key, functionalMap.data));
+         return null;
+      });
    }
 
    @Override
-   public <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, WriteEntryView<V>, R> f) {
-      System.out.printf("[W] Invoked evalMany(m=%s, %s)%n", m, params);
-      Param<Param.WaitMode> waitMode = params.get(ID);
+   public Observable<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f) {
+      System.out.printf("[W] Invoked evalMany(entries=%s, %s)%n", entries, params);
+      Param<WaitMode> waitMode = params.get(ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<R>() {
+            return new Observable<Void>() {
                @Override
-               public Subscription subscribe(Observer<? super R> observer) {
-                  m.entrySet().forEach(e -> {
-                     R result = f.apply(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
-                     observer.onNext(result);
+               public Subscription subscribe(Observer<? super Void> observer) {
+                  entries.entrySet().forEach(e -> {
+                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     observer.onNext(null);
                   });
                   observer.onCompleted();
                   return null;
                }
 
                @Override
-               public Subscription subscribe(Subscriber<? super R> subscriber) {
-                  Iterator<? extends Map.Entry<? extends K, ? extends V>> it = m.entrySet().iterator();
+               public Subscription subscribe(Subscriber<? super Void> subscriber) {
+                  Iterator<? extends Map.Entry<? extends K, ? extends V>> it = entries.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
                      Map.Entry<? extends K, ? extends V> e = it.next();
-                     R result = f.apply(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
-                     subscriber.onNext(result);
+                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     subscriber.onNext(null);
+                  }
+
+                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
+                  return null;
+               }
+            };
+         default:
+            throw new IllegalStateException();
+      }
+   }
+
+   @Override
+   public Observable<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f) {
+      System.out.printf("[W] Invoked evalMany(keys=%s, %s)%n", keys, params);
+      Param<WaitMode> waitMode = params.get(ID);
+      switch (waitMode.get()) {
+         case BLOCKING:
+            return new Observable<Void>() {
+               @Override
+               public Subscription subscribe(Observer<? super Void> observer) {
+                  keys.forEach(k -> {
+                     f.accept(EntryViews.writeOnly(k, functionalMap.data));
+                     observer.onNext(null);
+                  });
+                  observer.onCompleted();
+                  return null;
+               }
+
+               @Override
+               public Subscription subscribe(Subscriber<? super Void> subscriber) {
+                  Iterator<? extends K> it = keys.iterator();
+                  while (it.hasNext() && !subscriber.isUnsubscribed()) {
+                     f.accept(EntryViews.writeOnly(it.next(), functionalMap.data));
+                     subscriber.onNext(null);
+                  }
+
+                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
+                  return null;
+               }
+            };
+         default:
+            throw new IllegalStateException();
+      }
+   }
+
+   @Override
+   public Observable<WriteEntryView<V>> values() {
+      System.out.printf("[W] Invoked values(%s)%n", params);
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
+      switch (waitMode.get()) {
+         case BLOCKING:
+            return new Observable<WriteEntryView<V>>() {
+               @Override
+               public Subscription subscribe(Observer<? super WriteEntryView<V>> observer) {
+                  functionalMap.data.forEach((k, v) -> observer.onNext(EntryViews.writeOnly(k, functionalMap.data)));
+                  observer.onCompleted();
+                  return null;
+               }
+
+               @Override
+               public Subscription subscribe(Subscriber<? super WriteEntryView<V>> subscriber) {
+                  Iterator<Map.Entry<K, InternalValue<V>>> it = functionalMap.data.entrySet().iterator();
+                  while (it.hasNext() && !subscriber.isUnsubscribed()) {
+                     Map.Entry<K, InternalValue<V>> entry = it.next();
+                     subscriber.onNext(EntryViews.writeOnly(entry.getKey(), functionalMap.data));
                   }
 
                   if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
