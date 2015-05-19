@@ -1,11 +1,12 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
+import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
+import org.infinispan.api.v8.Status;
 
 import javax.cache.Cache;
 import javax.cache.CacheManager;
@@ -15,13 +16,16 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
+import javax.cache.processor.MutableEntry;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class JCacheDecorator<K, V> implements Cache<K, V> {
 
@@ -155,23 +159,144 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void clear() {
-      // TODO: Customise this generated block
+      await(writeOnly.truncate());
    }
 
    @Override
    public Iterator<Entry<K, V>> iterator() {
-      return null;  // TODO: Customise this generated block
+      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
+      final BlockingQueue<Entry<K, V>> entryEvents = new LinkedBlockingQueue<>();
+      // Wait mode is BLOCKING, so subscribe will block until completed
+      entries.subscribe(rw -> entryEvents.add(new Entry<K, V>() {
+         @Override
+         public K getKey() {
+            return rw.key();
+         }
+
+         @Override
+         public V getValue() {
+            return rw.get();
+         }
+
+         @Override
+         public <T> T unwrap(Class<T> clazz) {
+            return null;
+         }
+      }));
+
+      return new Iterator<Entry<K, V>>() {
+         @Override
+         public boolean hasNext() {
+            return entryEvents.peek() != null;
+         }
+
+         @Override
+         public Entry<K, V> next() {
+            try {
+               return entryEvents.take();
+            } catch (InterruptedException e) {
+               throw new AssertionError(e);
+            }
+         }
+
+         // In Java 8, default remove() implementation is unsupported, but
+         // adding support for it would be relatively trivial if following
+         // similar solution to the one in ConcurrentMapDecorator
+      };
    }
 
    @Override
    public <T> T invoke(K key, EntryProcessor<K, V, T> entryProcessor, Object... arguments) throws EntryProcessorException {
-      return null;  // TODO: Customise this generated block
+      return await(readWrite.eval(key, rw ->
+         entryProcessor.process(new ReadWriteMutableEntry<>(rw), arguments)));
+   }
+
+   private static final class ReadWriteMutableEntry<K, V> implements MutableEntry<K, V> {
+      final ReadWriteEntryView<K, V> rw;
+
+      private ReadWriteMutableEntry(ReadWriteEntryView<K, V> rw) {
+         this.rw = rw;
+      }
+
+      @Override
+      public boolean exists() {
+         return rw.find().isPresent();
+      }
+
+      @Override
+      public void remove() {
+         rw.remove();
+      }
+
+      @Override
+      public void setValue(V value) {
+         rw.set(value);
+      }
+
+      @Override
+      public K getKey() {
+         return rw.key();
+      }
+
+      @Override
+      public V getValue() {
+         return rw.find().orElse(null);
+      }
+
+      @Override
+      public <T> T unwrap(Class<T> clazz) {
+         return null;  // TODO: Customise this generated block
+      }
    }
 
    @Override
    public <T> Map<K, EntryProcessorResult<T>> invokeAll(Set<? extends K> keys, EntryProcessor<K, V, T> entryProcessor, Object... arguments) {
-      return null;  // TODO: Customise this generated block
+      Observable<EntryProcessorResultWithKey<K, T>> obs = readWrite.evalMany(keys, rw -> {
+            T t = entryProcessor.process(new ReadWriteMutableEntry<>(rw), arguments);
+            return new EntryProcessorResultWithKey<>(rw.key(), t);
+         }
+      );
+
+      Map<K, EntryProcessorResult<T>> map = new HashMap<>();
+      obs.subscribe(res -> map.put(res.key, res)); // Wait mode is BLOCKING, so will block until completed
+      return map;
    }
+
+   private static final class EntryProcessorResultWithKey<K, T> implements EntryProcessorResult<T> {
+      final K key;
+      final T t;
+
+      public EntryProcessorResultWithKey(K key, T t) {
+         this.key = key;
+         this.t = t;
+      }
+
+      @Override
+      public T get() throws EntryProcessorException {
+         return t;
+      }
+   }
+
+   @Override
+   public void close() {
+      try {
+         readOnly.close();
+      } catch (Exception e) {
+         throw new AssertionError(e);
+      }
+   }
+
+   @Override
+   public boolean isClosed() {
+      return readOnly.getStatus() == Status.STOPPED;
+   }
+
+   @Override
+   public String getName() {
+      return readOnly.getName();
+   }
+
+   ////////////////////////////////////////////////////////////////////////////
 
    @Override
    public void loadAll(Set<? extends K> keys, boolean replaceExistingValues, CompletionListener completionListener) {
@@ -184,27 +309,12 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public String getName() {
+   public <T> T unwrap(Class<T> clazz) {
       return null;  // TODO: Customise this generated block
    }
 
    @Override
    public CacheManager getCacheManager() {
-      return null;  // TODO: Customise this generated block
-   }
-
-   @Override
-   public void close() {
-      // TODO: Customise this generated block
-   }
-
-   @Override
-   public boolean isClosed() {
-      return false;  // TODO: Customise this generated block
-   }
-
-   @Override
-   public <T> T unwrap(Class<T> clazz) {
       return null;  // TODO: Customise this generated block
    }
 

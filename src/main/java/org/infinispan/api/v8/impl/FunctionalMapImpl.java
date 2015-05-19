@@ -2,6 +2,7 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.Param;
+import org.infinispan.api.v8.Status;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -10,10 +11,12 @@ public final class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
 
    final Params params;
    final ConcurrentMap<K, InternalValue<V>> data;
+   volatile Status status;
 
    private FunctionalMapImpl(Params params, ConcurrentMap<K, InternalValue<V>> data) {
       this.params = params;
       this.data = data;
+      this.status = Status.STARTED;
    }
 
    public static <K, V> FunctionalMapImpl<K, V> create() {
@@ -36,8 +39,19 @@ public final class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
    }
 
    @Override
+   public String getName() {
+      return "";  // TODO: Customise this generated block
+   }
+
+   @Override
+   public Status getStatus() {
+      return status;
+   }
+
+   @Override
    public void close() throws Exception {
       System.out.println("close");
+      status = Status.STOPPED;
    }
 
 }

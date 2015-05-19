@@ -1,27 +1,27 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static org.infinispan.api.v8.Param.WaitMode.ID;
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
 
-public class ReadWriteMapImpl<K, V> implements ReadWriteMap<K, V> {
+public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements ReadWriteMap<K, V> {
 
    private final Params params;
-   private final FunctionalMapImpl<K, V> functionalMap;
 
    private ReadWriteMapImpl(Params params, FunctionalMapImpl<K, V> functionalMap) {
+      super(functionalMap);
       this.params = params;
-      this.functionalMap = functionalMap;
    }
 
    public static <K, V> ReadWriteMap<K, V> create(FunctionalMapImpl<K, V> functionalMap) {
@@ -52,8 +52,32 @@ public class ReadWriteMapImpl<K, V> implements ReadWriteMap<K, V> {
    }
 
    @Override
-   public <R> Observable<R> evalMany(Set<? extends K> m, Function<ReadWriteEntryView<K, V>, R> f) {
-      return null;  // TODO: Customise this generated block
+   public <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f) {
+      System.out.printf("[RW] Invoked evalMany(keys=%s, %s)%n", keys, params);
+      Param<Param.WaitMode> waitMode = params.get(ID);
+      switch (waitMode.get()) {
+         case BLOCKING:
+            return new Observable<R>() {
+               @Override
+               public Subscription subscribe(Observer<? super R> observer) {
+                  keys.forEach(k -> observer.onNext(f.apply(EntryViews.readWrite(k, functionalMap.data))));
+                  observer.onCompleted();
+                  return null;
+               }
+
+               @Override
+               public Subscription subscribe(Subscriber<? super R> subscriber) {
+                  Iterator<? extends K> it = keys.iterator();
+                  while (it.hasNext() && !subscriber.isUnsubscribed())
+                     subscriber.onNext(f.apply(EntryViews.readWrite(it.next(), functionalMap.data)));
+
+                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
+                  return null;
+               }
+            };
+         default:
+            throw new IllegalStateException();
+      }
    }
 
    @Override
@@ -72,8 +96,4 @@ public class ReadWriteMapImpl<K, V> implements ReadWriteMap<K, V> {
       return create(params.addAll(ps), functionalMap);
    }
 
-   @Override
-   public void close() throws Exception {
-      // TODO: Customise this generated block
-   }
 }

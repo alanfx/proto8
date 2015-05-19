@@ -14,14 +14,13 @@ import java.util.function.Function;
 
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
 
-public class ReadOnlyMapImpl<K, V> implements ReadOnlyMap<K, V> {
+public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements ReadOnlyMap<K, V> {
 
    private final Params params;
-   private final FunctionalMapImpl<K, V> functionalMap;
 
    private ReadOnlyMapImpl(Params params, FunctionalMapImpl<K, V> functionalMap) {
+      super(functionalMap);
       this.params = params;
-      this.functionalMap = functionalMap;
    }
 
    public static <K, V> ReadOnlyMap<K, V> create(FunctionalMapImpl<K, V> functionalMap) {
@@ -151,8 +150,4 @@ public class ReadOnlyMapImpl<K, V> implements ReadOnlyMap<K, V> {
       return create(params.addAll(ps), functionalMap);
    }
 
-   @Override
-   public void close() throws Exception {
-      functionalMap.close();
-   }
 }

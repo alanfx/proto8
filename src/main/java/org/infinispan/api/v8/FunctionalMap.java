@@ -4,6 +4,7 @@ import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 
+import javax.cache.processor.EntryProcessor;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +20,10 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
     *
     */
    FunctionalMap<K, V> withParams(Param<?>... ps);
+
+   String getName();
+
+   Status getStatus();
 
    interface ReadOnlyMap<K, V> extends FunctionalMap<K, V> {
       ReadOnlyMap<K, V> withParams(Param<?>... ps);
@@ -61,6 +66,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * {@link ConcurrentMap#containsValue(Object)},
        * {@link ConcurrentMap#values()},
        * {@link ConcurrentMap#entrySet()},
+       * {@link javax.cache.Cache#iterator()},
        */
       Observable<ReadEntryView<K, V>> entries();
 
@@ -154,7 +160,12 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       Observable<WriteEntryView<V>> values();
 
       /**
-       * This method can be used to implement {@link ConcurrentMap#clear()}.
+       * This method can be used to implement:
+       *
+       * <ul>
+       * <li>{@link ConcurrentMap#clear()}</li>
+       * <li>{@link javax.cache.Cache#clear()}</li>
+       * </ul>
        */
       CompletableFuture<Void> truncate();
    }
@@ -171,6 +182,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * <li>{@link ConcurrentMap#remove(Object)}</li>
        * <li>{@link javax.cache.Cache#remove(Object)}</li>
        * <li>{@link javax.cache.Cache#getAndRemove(Object)}</li>
+       * <li>{@link javax.cache.Cache#invoke(Object, EntryProcessor, Object...)}</li>
        * </ul>
        */
       <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<K, V>, R> f);
@@ -207,8 +219,10 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
 
       /**
        * TODO: Remove a set of keys returning previous values/metaparams
+       *
+       * {@link javax.cache.Cache#invokeAll(Set, EntryProcessor, Object...)}
        */
-      <R> Observable<R> evalMany(Set<? extends K> m, Function<ReadWriteEntryView<K, V>, R> f);
+      <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f);
 
       /**
        * TODO: Remove all cached entries individually returning previous values/metaparams

@@ -8,6 +8,7 @@ import javax.cache.*;
 import javax.cache.Cache;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
+import javax.cache.processor.EntryProcessorResult;
 import javax.cache.processor.MutableEntry;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -252,7 +253,50 @@ public class JCacheTest {
 
    @Test
    public void testInvokeAll() {
-      throw new AssertionError();
+      HashSet<Integer> keys = new HashSet<>(Arrays.asList(1, 2, 3));
+
+      // Get multi via invokeAll
+      Map<Integer, EntryProcessorResult<String>> res0 = jcache.invokeAll(keys, (entry, args) -> entry.getValue());
+      assertEquals(null, res0.get(1).get());
+      assertEquals(null, res0.get(2).get());
+      assertEquals(null, res0.get(3).get());
+
+      // Put multi via invokeAll
+      jcache.invokeAll(keys, (entry, args) -> {
+         entry.setValue((String) args[entry.getKey() - 1]);
+         return null;
+      }, "one", "two", "three");
+
+      // Get multi via invokeAll
+      Map<Integer, EntryProcessorResult<String>> res1 = jcache.invokeAll(keys, (entry, args) -> entry.getValue());
+      assertEquals("one", res1.get(1).get());
+      assertEquals("two", res1.get(2).get());
+      assertEquals("three", res1.get(3).get());
+
+      // Remove multi via invokeAll
+      jcache.invokeAll(keys, (entry, args) -> {
+         entry.remove();
+         return null;
+      });
+
+      // Get multi via invokeAll
+      Map<Integer, EntryProcessorResult<String>> res2 = jcache.invokeAll(keys, (entry, args) -> entry.getValue());
+      assertEquals(null, res2.get(1).get());
+      assertEquals(null, res2.get(2).get());
+      assertEquals(null, res2.get(3).get());
+   }
+
+   @Test
+   public void testClose() {
+      JCacheDecorator<Integer, String> local = new JCacheDecorator<>(FunctionalMapImpl.<Integer, String>create());
+      assertFalse(local.isClosed());
+      local.close();
+      assertTrue(local.isClosed());
+   }
+
+   @Test
+   public void testGetName() {
+      assertEquals("", jcache.getName());
    }
 
 }

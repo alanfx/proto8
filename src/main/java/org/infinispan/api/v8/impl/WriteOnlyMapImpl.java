@@ -19,14 +19,13 @@ import java.util.function.Function;
 import static org.infinispan.api.v8.Param.WaitMode.ID;
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
 
-public class WriteOnlyMapImpl<K, V> implements WriteOnlyMap<K, V> {
+public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements WriteOnlyMap<K, V> {
 
    private final Params params;
-   private final FunctionalMapImpl<K, V> functionalMap;
 
    private WriteOnlyMapImpl(Params params, FunctionalMapImpl<K, V> functionalMap) {
+      super(functionalMap);
       this.params = params;
-      this.functionalMap = functionalMap;
    }
 
    public static <K, V> WriteOnlyMap<K, V> create(FunctionalMapImpl<K, V> functionalMap) {
@@ -172,11 +171,6 @@ public class WriteOnlyMapImpl<K, V> implements WriteOnlyMap<K, V> {
          return this; // We already have all specified params
 
       return create(params.addAll(ps), functionalMap);
-   }
-
-   @Override
-   public void close() throws Exception {
-      functionalMap.close();
    }
 
 }

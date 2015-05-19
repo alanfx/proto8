@@ -121,13 +121,6 @@ public class MetaParamsTest {
       metas.addMany(versionParam3, versionParam4);
       assertEquals(1, metas.size());
       assertEquals(new EntryVersionParam<>(new NumericEntryVersion(400)), metas.get(EntryVersionParam.ID()));
-
-//      assertEquals(expected2, metas.get(EntryVersionParam.ID()));
-//      EntryVersionParam<Long> versionParam3 = new EntryVersionParam<>(new NumericEntryVersion(300));
-//      metas.add(versionParam3);
-//      assertEquals(1, metas.size());
-//      EntryVersionParam<Long> expected3 = new EntryVersionParam<>(new NumericEntryVersion(300));
-//      assertEquals(expected3, metas.get(EntryVersionParam.ID()));
    }
 
 
