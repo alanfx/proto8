@@ -3,6 +3,8 @@ package org.infinispan.api.v8;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
+import org.infinispan.api.v8.Listeners.ReadWriteListeners;
+import org.infinispan.api.v8.Listeners.WriteListeners;
 
 import javax.cache.processor.EntryProcessor;
 import java.util.Map;
@@ -168,6 +170,8 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * </ul>
        */
       CompletableFuture<Void> truncate();
+
+      WriteListeners<K, V> listeners();
    }
 
    interface ReadWriteMap<K, V> extends FunctionalMap<K, V> {
@@ -228,6 +232,11 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * TODO: Remove all cached entries individually returning previous values/metaparams
        */
       Observable<ReadWriteEntryView<K, V>> entries();
+
+      /**
+       *
+       */
+      ReadWriteListeners<K, V> listeners();
    }
 
 }

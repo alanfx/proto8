@@ -1,6 +1,7 @@
 package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.FunctionalMap;
+import org.infinispan.api.v8.Listeners;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Status;
 
@@ -11,11 +12,14 @@ public final class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
 
    final Params params;
    final ConcurrentMap<K, InternalValue<V>> data;
+   final ListenerNotifier<K, V> notifier;
+
    volatile Status status;
 
    private FunctionalMapImpl(Params params, ConcurrentMap<K, InternalValue<V>> data) {
       this.params = params;
       this.data = data;
+      this.notifier = new ListenersImpl<>();
       this.status = Status.STARTED;
    }
 

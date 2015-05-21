@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
-import static org.infinispan.api.v8.EntryVersion.CompareResult.*;
+import static org.infinispan.api.v8.EntryVersion.CompareResult.EQUAL;
 import static org.junit.Assert.*;
 
 public class FunctionalMapTest {

@@ -2,6 +2,7 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
+import org.infinispan.api.v8.Listeners;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 
@@ -36,14 +37,14 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
    public <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[RW] Invoked eval(k=%s, %s)%n", key, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.readWrite(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.readWrite(key, this)));
    }
 
    @Override
    public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, functionalMap.data)));
+      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, this)));
    }
 
    @Override
@@ -60,7 +61,7 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
             return new Observable<R>() {
                @Override
                public Subscription subscribe(Observer<? super R> observer) {
-                  keys.forEach(k -> observer.onNext(f.apply(EntryViews.readWrite(k, functionalMap.data))));
+                  keys.forEach(k -> observer.onNext(f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this))));
                   observer.onCompleted();
                   return null;
                }
@@ -69,7 +70,7 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
                public Subscription subscribe(Subscriber<? super R> subscriber) {
                   Iterator<? extends K> it = keys.iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed())
-                     subscriber.onNext(f.apply(EntryViews.readWrite(it.next(), functionalMap.data)));
+                     subscriber.onNext(f.apply(EntryViews.readWrite(it.next(), ReadWriteMapImpl.this)));
 
                   if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
                   return null;
@@ -83,6 +84,11 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
    @Override
    public Observable<ReadWriteEntryView<K, V>> entries() {
       return null;  // TODO: Customise this generated block
+   }
+
+   @Override
+   public Listeners.ReadWriteListeners<K, V> listeners() {
+      return functionalMap.notifier;
    }
 
    @Override

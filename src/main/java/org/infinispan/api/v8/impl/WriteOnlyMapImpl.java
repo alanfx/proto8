@@ -1,8 +1,8 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
+import org.infinispan.api.v8.Listeners;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
@@ -12,9 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static org.infinispan.api.v8.Param.WaitMode.ID;
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
@@ -41,7 +39,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
       System.out.printf("[W] Invoked eval(k=%s, %s)%n", key, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       return withWaitMode(waitMode.get(), () -> {
-         f.accept(EntryViews.writeOnly(key, functionalMap.data));
+         f.accept(EntryViews.writeOnly(key, this));
          return null;
       });
    }
@@ -51,7 +49,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       return withWaitMode(waitMode.get(), () -> {
-         f.accept(value, EntryViews.writeOnly(key, functionalMap.data));
+         f.accept(value, EntryViews.writeOnly(key, this));
          return null;
       });
    }
@@ -66,7 +64,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                @Override
                public Subscription subscribe(Observer<? super Void> observer) {
                   entries.entrySet().forEach(e -> {
-                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
                      observer.onNext(null);
                   });
                   observer.onCompleted();
@@ -78,7 +76,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                   Iterator<? extends Map.Entry<? extends K, ? extends V>> it = entries.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
                      Map.Entry<? extends K, ? extends V> e = it.next();
-                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), functionalMap.data));
+                     f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
                      subscriber.onNext(null);
                   }
 
@@ -101,7 +99,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                @Override
                public Subscription subscribe(Observer<? super Void> observer) {
                   keys.forEach(k -> {
-                     f.accept(EntryViews.writeOnly(k, functionalMap.data));
+                     f.accept(EntryViews.writeOnly(k, WriteOnlyMapImpl.this));
                      observer.onNext(null);
                   });
                   observer.onCompleted();
@@ -112,7 +110,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                public Subscription subscribe(Subscriber<? super Void> subscriber) {
                   Iterator<? extends K> it = keys.iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
-                     f.accept(EntryViews.writeOnly(it.next(), functionalMap.data));
+                     f.accept(EntryViews.writeOnly(it.next(), WriteOnlyMapImpl.this));
                      subscriber.onNext(null);
                   }
 
@@ -134,7 +132,8 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
             return new Observable<WriteEntryView<V>>() {
                @Override
                public Subscription subscribe(Observer<? super WriteEntryView<V>> observer) {
-                  functionalMap.data.forEach((k, v) -> observer.onNext(EntryViews.writeOnly(k, functionalMap.data)));
+                  functionalMap.data.forEach((k, v) ->
+                     observer.onNext(EntryViews.writeOnly(k, WriteOnlyMapImpl.this)));
                   observer.onCompleted();
                   return null;
                }
@@ -144,7 +143,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                   Iterator<Map.Entry<K, InternalValue<V>>> it = functionalMap.data.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
                      Map.Entry<K, InternalValue<V>> entry = it.next();
-                     subscriber.onNext(EntryViews.writeOnly(entry.getKey(), functionalMap.data));
+                     subscriber.onNext(EntryViews.writeOnly(entry.getKey(), WriteOnlyMapImpl.this));
                   }
 
                   if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
@@ -171,6 +170,11 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
          return this; // We already have all specified params
 
       return create(params.addAll(ps), functionalMap);
+   }
+
+   @Override
+   public Listeners.WriteListeners<K, V> listeners() {
+      return functionalMap.notifier;
    }
 
 }
