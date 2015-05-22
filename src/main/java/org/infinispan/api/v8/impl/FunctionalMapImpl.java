@@ -1,7 +1,6 @@
 package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.FunctionalMap;
-import org.infinispan.api.v8.Listeners;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Status;
 

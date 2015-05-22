@@ -1,21 +1,124 @@
 package org.infinispan.api.v8;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
-public interface MetaParam<P> {
+/**
+ * An easily extensible metadata parameter that's stored along with the value
+ * in the the functional map.
+ *
+ * Some metadata parameters can be provided by the user in which case they
+ * need to implement {@link MetaParam.Writable}. Examples of writable metadata
+ * parameters are version information, lifespan of the cached value...etc.
+ *
+ * Those metadata parameters not extending {@link MetaParam.Writable} are
+ * created by internal logic and hence can only be queried, for example:
+ * time when value was added into the functional map, or last time value
+ * was accessed or modified.
+ *
+ * DESIGN RATIONALES:
+ * <ul>
+ *    <il>This interface replaces Infinispan's Metadata interface providing
+ *    a more flexible way to add new metadata parameters to be stored with
+ *    the cached entries.
+ *    </il>
+ *    <il>Another benefit of the design is that it makes a clear separation
+ *    between the metadata that can be provided by the user on per-entry basis,
+ *    e.g. lifespan, maxIdle, version...etc, versus metadata that's produced
+ *    by the internal logic that cannot be modified directly by the user, e.g.
+ *    cache entry created time, last time cache entry was modified or accessed
+ *    ...etc.
+ *    </il>
+ * </ul>
+ *
+ * @param <T> type of MetaParam instance, implementations should assign it to
+ * the implementation's type.
+ */
+public interface MetaParam<T> {
 
-   <T> Id<T> id();
-   P get();
+   /**
+    * A parameter's identifier. Each parameter must have a different id.
+    *
+    * DESIGN RATIONALES:
+    * <ul>
+    *    <il>Why does a metadata parameter need an id? It needs it mostly for
+    *    lookup, but a numeric identifier is not enough here.
+    *    </il>
+    *    <li>Why is a numeric identifier not enough here? The main reason is
+    *    that contrary to {@link Param}, users will be querying {@link MetaParam}
+    *    instances via entry view instances. So, we need a typesafe way to
+    *    retrieve {@link MetaParam} instances. Numeric integer-based lookup
+    *    works well when the caller knows what to expect but users might not
+    *    know that. By having {@link Id} typed with the {@link MetaParam} type,
+    *    users can use this id() method to lookup the metadata parameter via
+    *    {@link MetaParam.Lookup}. Also, metadata parameter instances can
+    *    define static identifiers to lookup a metadata of that type.
+    *    </li>
+    *    <li>Please see org.infinispan.api.v8.impl.MetaParams test for examples
+    *    on how metadata parameters are looked up.</li>
+    * </ul>
+    */
+   Id<T> id();
 
+   /**
+    * Provides metadata parameter lookup capabilities using {@link Id} as
+    * lookup key.
+    *
+    * DESIGN RATIONALES:
+    * <ul>
+    *    <li>Why have both getMetaParam() and findMetaParam()? Convenience,
+    *    for exactly the same reasons why {@link EntryView.ReadEntryView}
+    *    exposes {@link EntryView.ReadEntryView#get()} and
+    *    {@link EntryView.ReadEntryView#find()}
+    *    </li>
+    * </ul>
+    */
+   interface Lookup {
+      /**
+       * Returns a non-null metadata parameter implementation of the same type
+       * as the {@link Id} being looked up, or throws {@link NoSuchElementException}
+       * if no metadata parameter exists.
+       *
+       * @throws NoSuchElementException if no metadata parameter exists.
+       *
+       * @param <T> metadata parameter type
+       */
+      <T> T getMetaParam(MetaParam.Id<T> id) throws NoSuchElementException;
+
+      /**
+       * Optional metadata parameter implementation of the same type as the
+       * {@link Id} being looked up. It'll return a non-empty metadata
+       * parameter implementation instance when the metadata parameter with
+       * the given ID exists, or empty when the metadata parameter is not present.
+       *
+       * @param <T> metadata parameter type
+       */
+      <T> Optional<T> findMetaParam(MetaParam.Id<T> id);
+   }
+
+   /**
+    * Typed identifier for a {@link MetaParam} type, backed by a numeric
+    * integer identifier.
+    *
+    * Each instance of a {@link MetaParam} type must provide the same {@link Id},
+    * because only one instance of that {@link MetaParam} is expected amongst
+    * the metadata parameters stored with the cache entry.
+    *
+    * If multiple instances of the metadata parameter are to be stored, a
+    * {@link MetaParam} implementation must be constructed backed by the
+    * collection of those metadata parameters.
+    *
+    * Two distinct {@link MetaParam} types are not allowed to have the same
+    * {@link Id}, but they're free to choose to be backed by any positive or
+    * negative number as long as no other metadata parameter is using it.
+    *
+    * @param <T> Type of {@link MetaParam} for which it provides identifier.
+    */
    final class Id<T> {
-      final int id;
+      private final int id;
 
       public Id(int id) {
          this.id = id;
-      }
-
-      public int id() {
-         return id;
       }
 
       @Override
@@ -31,7 +134,6 @@ public interface MetaParam<P> {
          Id<?> id1 = (Id<?>) o;
 
          return id == id1.id;
-
       }
 
       @Override
@@ -40,9 +142,20 @@ public interface MetaParam<P> {
       }
    }
 
-   interface Writable<P> extends MetaParam<P> {}
+   /**
+    * Writable {@link MetaParam} instances are those that the user can provide
+    * to be stored as part of the cache entry. RESTful HTTTP MIME metadata, version
+    * information or lifespan are examples.
+    *
+    * @param <T> type of MetaParam instance, implementations should assign it to
+    * the implementation's type.
+    */
+   interface Writable<T> extends MetaParam<T> {}
 
-   final class Lifespan extends LongMetadata implements Writable<Long> {
+   /**
+    * Writable metadata parameter representing a cached entry's millisecond lifespan.
+    */
+   final class Lifespan extends LongMetadata<Lifespan> implements Writable<Lifespan> {
       public static final Id<Lifespan> ID = new Id<>(0);
 
       public Lifespan(long lifespan) {
@@ -60,6 +173,10 @@ public interface MetaParam<P> {
       }
    }
 
+   /**
+    * Read only metadata parameter representing a cached entry's created time
+    * in milliseconds.
+    */
    final class Created extends LongMetadata {
       public static final Id<Created> ID = new Id<>(1);
 
@@ -78,7 +195,11 @@ public interface MetaParam<P> {
       }
    }
 
-   final class MaxIdle extends LongMetadata implements Writable<Long> {
+   /**
+    * Writable metadata parameter representing a cached entry's millisecond
+    * max idle time.
+    */
+   final class MaxIdle extends LongMetadata<MaxIdle> implements Writable<MaxIdle> {
       public static final Id<MaxIdle> ID = new Id<>(2);
 
       public MaxIdle(long maxIdle) {
@@ -96,6 +217,10 @@ public interface MetaParam<P> {
       }
    }
 
+   /**
+    * Read only metadata parameter representing a cached entry's last used time
+    * in milliseconds.
+    */
    final class LastUsed extends LongMetadata {
       public static final Id<LastUsed> ID = new Id<>(3);
 
@@ -114,9 +239,10 @@ public interface MetaParam<P> {
       }
    }
 
-   final class EntryVersionParam<V> implements Writable<EntryVersion<V>> {
-      //public static final Id<EntryVersionParam<?>> ID = new Id<>(4);
-
+   /**
+    * Writable metadata parameter representing a cached entry's version.
+    */
+   final class EntryVersionParam<V> implements Writable<EntryVersionParam<V>> {
       public static <V> Id<EntryVersionParam<V>> ID() {
          return new Id<>(4);
       }
@@ -128,11 +254,10 @@ public interface MetaParam<P> {
       }
 
       @Override
-      public <T> Id<T> id() {
-         return (Id<T>) ID();
+      public Id<EntryVersionParam<V>> id() {
+         return ID();
       }
 
-      @Override
       public EntryVersion<V> get() {
          return entryVersion;
       }
@@ -158,14 +283,13 @@ public interface MetaParam<P> {
       }
    }
 
-   abstract class LongMetadata implements MetaParam<Long> {
+   abstract class LongMetadata<T> implements MetaParam<T> {
       protected final long value;
 
       public LongMetadata(long value) {
          this.value = value;
       }
 
-      @Override
       public Long get() {
          return value;
       }
@@ -184,11 +308,6 @@ public interface MetaParam<P> {
       public int hashCode() {
          return (int) (value ^ (value >>> 32));
       }
-   }
-
-   interface Lookup {
-      <T> T getMetaParam(MetaParam.Id<T> id);
-      <T> Optional<T> findMetaParam(MetaParam.Id<T> id);
    }
 
 }

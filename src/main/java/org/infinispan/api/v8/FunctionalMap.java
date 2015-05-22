@@ -16,18 +16,57 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * Top level functional map interface offering common functionality for the
+ * read-only, read-write, and write-only operations that can be run against a
+ * functional map.
+ *
+ * DESIGN RATIONALES:
+ * <ul>
+ *    <li>Originally, I tried to come up with a single functional map interface
+ *    that would encompass read-only, read-write and write-only operations, but
+ *    it felt quite bloated. By separating each major type of operations to its
+ *    own interface, it becomes easier to figure out which are all the read-only
+ *    operations, which are write-only...etc, which also helps the user quickly
+ *    see what they can do without being obstructed by other operation types.
+ *    </li>
+ *    <li>TODO: Function application...</li>
+ * </ul>
+ */
 public interface FunctionalMap<K, V> extends AutoCloseable {
 
    /**
-    *
+    * Tweak functional map executions providing {@link Param} instances.
     */
    FunctionalMap<K, V> withParams(Param<?>... ps);
 
+   /**
+    * Functional map's name.
+    */
    String getName();
 
+   /**
+    * Functional map's status.
+    */
    Status getStatus();
 
+   /**
+    * Exposes read-only operations that can be executed against the functional map.
+    * The information that can be read per entry in the functional map is
+    * exposed by {@link ReadEntryView}.
+    *
+    * DESIGN RATIONALES:
+    * <ul>
+    *    <li>Why does it make sense to expose read-only operations?
+    *    Because read-only operations don't acquired locks, and hence all sorts
+    *    of optimizations can be carried out by the internal logic.
+    *    </li>
+    * </ul>
+    */
    interface ReadOnlyMap<K, V> extends FunctionalMap<K, V> {
+      /**
+       * Tweak read-only functional map executions providing {@link Param} instances.
+       */
       ReadOnlyMap<K, V> withParams(Param<?>... ps);
 
       /**

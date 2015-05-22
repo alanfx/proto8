@@ -10,6 +10,7 @@ import org.infinispan.api.v8.MetaParam.MaxIdle;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.junit.Assert.*;
@@ -26,7 +27,7 @@ public class MetaParamsTest {
       assertFalse(metas.find(new MetaParam.Id(2)).isPresent());
    }
 
-   @Test(expected = IllegalArgumentException.class)
+   @Test(expected = NoSuchElementException.class)
    public void testEmptyMetaParamsGet() {
       MetaParams metas = MetaParams.empty();
       assertTrue(metas.isEmpty());

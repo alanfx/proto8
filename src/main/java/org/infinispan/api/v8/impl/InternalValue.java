@@ -2,6 +2,7 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.MetaParam;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 final class InternalValue<V> implements MetaParam.Lookup {
@@ -41,7 +42,7 @@ final class InternalValue<V> implements MetaParam.Lookup {
    }
 
    @Override
-   public <T> T getMetaParam(MetaParam.Id<T> id) {
+   public <T> T getMetaParam(MetaParam.Id<T> id) throws NoSuchElementException {
       return metaParams.get(id);
    }
 

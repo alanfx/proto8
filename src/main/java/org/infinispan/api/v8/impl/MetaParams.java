@@ -7,8 +7,13 @@ import org.infinispan.api.v8.MetaParam.Id;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
+/**
+ * TODO: Why id cannot be used as index
+ * TODO: Why sequential lookup is just fine...
+ */
 @NotThreadSafe
 final class MetaParams {
 
@@ -30,10 +35,10 @@ final class MetaParams {
       return Optional.ofNullable(findNullable(id));
    }
 
-   <T> T get(Id<T> id) {
+   <T> T get(Id<T> id) throws NoSuchElementException {
       T param = findNullable(id);
       if (param == null)
-         throw new IllegalArgumentException("Metadata with id=" + id + " not found");
+         throw new NoSuchElementException("Metadata with id=" + id + " not found");
 
       return param;
    }

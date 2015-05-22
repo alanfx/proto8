@@ -41,7 +41,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
    @Override
    public <R> Observable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
       System.out.printf("[R] Invoked evalMany(m=%s, %s)%n", s, params);
-      Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
             return new Observable<R>() {
@@ -82,7 +82,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
    @Override
    public Observable<K> keys() {
       System.out.printf("[R] Invoked keys(%s)%n", params);
-      Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
             return new Observable<K>() {
@@ -111,7 +111,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
    @Override
    public Observable<ReadEntryView<K, V>> entries() {
       System.out.printf("[R] Invoked entries(%s)%n", params);
-      Param<Param.WaitMode> waitMode = params.get(WaitMode.ID);
+      Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
             return new Observable<ReadEntryView<K, V>>() {
