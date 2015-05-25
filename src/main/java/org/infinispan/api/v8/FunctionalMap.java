@@ -30,7 +30,21 @@ import java.util.function.Function;
  *    operations, which are write-only...etc, which also helps the user quickly
  *    see what they can do without being obstructed by other operation types.
  *    </li>
- *    <li>TODO: Function application...</li>
+ *    <li>In the original design, we defined custom functional interfaces that
+ *    were serializable. By doing this, we could ship them around and apply
+ *    them remotely. However, for a function to be serializable, it can't
+ *    capture non-serializable objects which these days can only be detected
+ *    at runtime, hence it's not very typesafe. On top of that, using foreign
+ *    function definitions would have made the code harder to read. For all
+ *    these reasons, we've gone for the approach of using standard lambda
+ *    functions. When these have to run in a clustered environment, instead of
+ *    shipping the lambda function around, necessary elements are brought to
+ *    the node where the function is passed, and the functions gets executed
+ *    locally. This way of working has also the benefit of matching how
+ *    Infinispan works internally, bringing necessary elements from other
+ *    nodes, executing operations locally and shipping results around. In the
+ *    future, we might decide to make these functions marshallable, but
+ *    outside the standard</li>
  * </ul>
  */
 public interface FunctionalMap<K, V> extends AutoCloseable {
@@ -61,6 +75,13 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
     *    Because read-only operations don't acquired locks, and hence all sorts
     *    of optimizations can be carried out by the internal logic.
     *    </li>
+    *    <li>Why no values() method? Having keys() makes sense since that way
+    *    we can have an observe all keys without having to bring values.
+    *    Having entries() makes sense since it allows you to observe on both
+    *    keys and values, but this is no extra cost to exposing just values
+    *    since keys are the main index and hence will always be available.
+    *    Hence, adding values() offers nothing extra to the API.
+    *    </li>
     * </ul>
     */
    interface ReadOnlyMap<K, V> extends FunctionalMap<K, V> {
@@ -70,33 +91,57 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       ReadOnlyMap<K, V> withParams(Param<?>... ps);
 
       /**
-       * Evaluate a read-only function on the value associated with the key.
+       * Evaluate a read-only function on the value associated with the key
+       * and return a {@link CompletableFuture} with the return type of the function.
+       * If the user is not sure if the key is present, {@link ReadEntryView#find()}
+       * can be used to find out for sure. Typically, function implementations
+       * would return value or {@link MetaParam} information from the cache
+       * entry in the functional map.
        *
-       * This method can be used to implement read-only single-key based operations in
-       * {@link ConcurrentMap} and {@link javax.cache.Cache} such as:
+       * By returning {@link CompletableFuture} instead of the function's
+       * return type directly, the method hints at the possibility that to
+       * executing the function might require remote data present in either
+       * a persistent store or a remote clustered node.
+       *
+       * This method can be used to implement read-only single-key based
+       * operations in {@link ConcurrentMap} and {@link javax.cache.Cache}
+       * such as:
        *
        * <ul>
-       * <li>{@link ConcurrentMap#get(Object)}</li>
-       * <li>{@link ConcurrentMap#containsKey(Object)}</li>
-       * <li>{@link javax.cache.Cache#get(Object)}</li>
-       * <li>{@link javax.cache.Cache#containsKey(Object)}</li>
+       *    <li>{@link ConcurrentMap#get(Object)}</li>
+       *    <li>{@link ConcurrentMap#containsKey(Object)}</li>
+       *    <li>{@link javax.cache.Cache#get(Object)}</li>
+       *    <li>{@link javax.cache.Cache#containsKey(Object)}</li>
        * </ul>
        */
       <R> CompletableFuture<R> eval(K key, Function<ReadEntryView<K, V>, R> f);
 
       /**
-       * Evaluate a function on the values associated with the subset of keys passed in.
+       * Evaluate a function on the key and potential value associated in
+       * the functionap map, for each of the keys in the set passed in, and
+       * returns an {@link Observable} to which the user can subscribe get
+       * asynchronous callbacks as each function's result is computed.
+       *
+       * So, the function passed in will be executed for as many keys
+       * present in keys collection set. Similar to {@link #eval(Object, Function)},
+       * if the user is not sure whether a particular key is present,
+       * {@link ReadEntryView#find()} can be used to find out for sure.
        *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#getAll(Set)}.
        *
-       * DESIGN RATIONALE: It makes sense to expose global operation like this
-       * instead of forcing users to iterate over the keys to lookup and call
-       * get individually since Infinispan can do things more efficiently.
+       * DESIGN RATIONALE:
+       * <ul>
+       *    <li>It makes sense to expose global operation like this instead of
+       *    forcing users to iterate over the keys to lookup and call get
+       *    individually since Infinispan can do things more efficiently.
+       *    </li>
+       * </ul>
        */
-      <R> Observable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f);
+      <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadEntryView<K, V>, R> f);
 
       /**
+       *
        * {@link ConcurrentMap#size()},
        * {@link ConcurrentMap#keySet()},
        * {@link ConcurrentMap#isEmpty()},
@@ -110,14 +155,6 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * {@link javax.cache.Cache#iterator()},
        */
       Observable<ReadEntryView<K, V>> entries();
-
-      // DESIGN RATIONALE: Why no values() method?
-      // Having keys() makes sense since that way we can have an observe all
-      // keys without having to bring values. Having entries() makes sense
-      // since it allows you to observe on both keys and values, but this is
-      // no extra cost to exposing just values since keys are the main index
-      // and hence will always be available. Hence, adding values() offers
-      // nothing extra to the API.
    }
 
    interface WriteOnlyMap<K, V> extends FunctionalMap<K, V> {
