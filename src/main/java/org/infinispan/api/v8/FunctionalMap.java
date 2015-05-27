@@ -113,16 +113,24 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    <li>{@link javax.cache.Cache#get(Object)}</li>
        *    <li>{@link javax.cache.Cache#containsKey(Object)}</li>
        * </ul>
+       *
+       * @param key the key associated with the {@link ReadEntryView} to be
+       *            passed to the function.
+       * @param f function that takes a {@link ReadEntryView} associated with
+       *          the key, and returns a value.
+       * @param <R> function return type
+       * @return a {@link CompletableFuture} which will be completed with the
+       *         returned value from the function
        */
       <R> CompletableFuture<R> eval(K key, Function<ReadEntryView<K, V>, R> f);
 
       /**
-       * Evaluate a function on the key and potential value associated in
-       * the functionap map, for each of the keys in the set passed in, and
+       * Evaluate a function on a key and potential value associated in
+       * the functional map, for each of the keys in the set passed in, and
        * returns an {@link Observable} to which the user can subscribe get
        * asynchronous callbacks as each function's result is computed.
        *
-       * So, the function passed in will be executed for as many keys
+       * The function passed in will be executed for as many keys
        * present in keys collection set. Similar to {@link #eval(Object, Function)},
        * if the user is not sure whether a particular key is present,
        * {@link ReadEntryView#find()} can be used to find out for sure.
@@ -137,55 +145,150 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    individually since Infinispan can do things more efficiently.
        *    </li>
        * </ul>
+       *
+       * @param keys the keys associated with each of the {@link ReadEntryView}
+       *             passed in the function callbacks
+       * @param f function that takes a {@link ReadEntryView} associated with
+       *          the key, and returns a value. It'll be invoked once for each key
+       *          passed in
+       * @param <R> function return type
+       * @return an {@link Observable} who will emit an element for
+       *         each function return value
        */
       <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadEntryView<K, V>, R> f);
 
       /**
+       * Provides an Observable to which subscribers can be registered to work
+       * on all the cached keys.
        *
-       * {@link ConcurrentMap#size()},
-       * {@link ConcurrentMap#keySet()},
-       * {@link ConcurrentMap#isEmpty()},
+       * This method can be used to implement operations such as:
+       * <ul>
+       *    <li>{@link ConcurrentMap#size()}</li>
+       *    <li>{@link ConcurrentMap#keySet()}</li>
+       *    <li>{@link ConcurrentMap#isEmpty()}</li>
+       * </ul>
+       *
+       * @return an {@link Observable} who will emit an element for each cached key
        */
       Observable<K> keys();
 
       /**
-       * {@link ConcurrentMap#containsValue(Object)},
-       * {@link ConcurrentMap#values()},
-       * {@link ConcurrentMap#entrySet()},
-       * {@link javax.cache.Cache#iterator()},
+       * Provides an Observable to which subscribers can be registered to work
+       * on all the cached entries.
+       *
+       * This method can be used to implement operations such as:
+       * <ul>
+       *    <li>{@link ConcurrentMap#containsValue(Object)}</li>
+       *    <li>{@link ConcurrentMap#values()}</li>
+       *    <li>{@link ConcurrentMap#entrySet()}</li>
+       *    <li>{@link javax.cache.Cache#iterator()}</li>
+       * </ul>
+       *
+       * @return an {@link Observable} who will emit an element for each cached entry
        */
       Observable<ReadEntryView<K, V>> entries();
    }
 
+   /**
+    * Exposes write-only operations that can be executed against the functional map.
+    * The write operations that can be applied per entry are exposed by
+    * {@link WriteEntryView}.
+    *
+    * DESIGN RATIONALES:
+    * <ul>
+    *    <li>Why does it make sense to expose write-only operations?
+    *    Because write-only operations do not need to read. In other words,
+    *    since write-only operations do not read or query the previous value,
+    *    these read/query operations, which sometimes can be expensive since
+    *    they involve talking to a remote node in the cluster or the
+    *    persistence layer, can be avoided optimising write-only operations.
+    *    </li>
+    * </ul>
+    */
    interface WriteOnlyMap<K, V> extends FunctionalMap<K, V> {
+      /**
+       * Tweak write-only functional map executions providing {@link Param} instances.
+       */
       WriteOnlyMap<K, V> withParams(Param<?>... ps);
 
       /**
-       * Evaluate a write-only function on the value associated with the key.
+       * Evaluate a write-only {@link BiConsumer} operation, with a value
+       * passed in and a {@link WriteEntryView} of the value associated with
+       * the key, and return a {@link CompletableFuture} which will be
+       * completed when the operation completes.
+       *
+       * By returning {@link CompletableFuture} instead of the function's
+       * return type directly, the method hints at the possibility that to
+       * executing the function might require remote data present in either
+       * a persistent store or a remote clustered node.
        *
        * This method can be used to implement single-key write-only operations
-       * such as:
+       * which do not need to query previous value, such as:
        *
        * <ul>
        * <li>{@link javax.cache.Cache#put(Object, Object)}</li>
-       * <li></li>
-       * <li></li>
        * </ul>
        *
        * DESIGN RATIONALES:
        * <ul>
-       * <li>Since this is a write-only operation, no entry attributes can be
-       * queried, hence the only reasonable thing can be returned is Void.</li>
+       *    <li>Since this is a write-only operation, no entry attributes can be
+       *    queried, hence the only reasonable thing can be returned is Void.
+       *    </li>
+       *    <li>Why provide this operation? Isn't {@link #eval(Object, Consumer)} enough?
+       *    The functionality provided by this function could indeed be implemented
+       *    with {@link #eval(Object, Consumer)}, but there's a crucial difference.
+       *    If you want to store a value and reference the value to be stored
+       *    from the passed in operation, {@link #eval(Object, Consumer)} needs
+       *    to capture that value. Capturing means that each time the operation
+       *    is called, a new lambda needs to be instantiated. By offering a
+       *    {@link BiConsumer} that takes user provided value as first parameter,
+       *    the operation does not capture any external objects when implementing
+       *    simple operations such as {@link javax.cache.Cache#put(Object, Object)},
+       *    and hence, the {@link BiConsumer} could be cached and reused each
+       *    time it's invoked.
+       *    </li>
        * </ul>
+       *
+       * @param key the key associated with the {@link WriteEntryView} to be
+       *            passed to the operation
+       * @param value value to write, passed in as first parameter to the
+       *              {@link BiConsumer} operation.
+       * @param f operation that takes a user defined value, and a
+       *          {@link WriteEntryView} associated with the key, and writes
+       *          to the {@link WriteEntryView} passed in without returning anything
+       * @return a {@link CompletableFuture} which will be completed the
+       *         operation completes
        */
       CompletableFuture<Void> eval(K key, V value, BiConsumer<V, WriteEntryView<V>> f);
 
       /**
+       * Evaluate a write-only {@link Consumer} operation with a
+       * {@link WriteEntryView} of the value associated with the key,
+       * and return a {@link CompletableFuture} which will be
+       * completed with the object returned by the operation.
+       *
+       * By returning {@link CompletableFuture} instead of the function's
+       * return type directly, the method hints at the possibility that to
+       * executing the function might require remote data present in either
+       * a persistent store or a remote clustered node.
+       *
        * DESIGN RATIONALES:
        * <ul>
-       * <li>Since this is a write-only operation, no entry attributes can be
-       * queried, hence the only reasonable thing can be returned is Void.</li>
+       *    <li>Since this is a write-only operation, no entry attributes can be
+       *    queried, hence the only reasonable thing can be returned is Void.
+       *    </li>
+       *    <li>Why provide this operation? Isn't {@link #eval(Object, Object, BiConsumer)} enough?
+       *    Possibly, this operation makes a bit simpler to write constant
+       *    values along with optional metadata parameters.
+       *    </li>
        * </ul>
+       *
+       * @param key the key associated with the {@link WriteEntryView} to be
+       *            passed to the operation
+       * @param f operation that takes a {@link WriteEntryView} associated with
+       *          the key and writes to the it without returning anything
+       * @return a {@link CompletableFuture} which will be completed the
+       *         operation completes
        */
       CompletableFuture<Void> eval(K key, Consumer<WriteEntryView<V>> f);
 
@@ -195,20 +298,23 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * This method can be used to implement operations such as:
        *
        * <ul>
-       * <li>{@link ConcurrentMap#putAll(Map)}</li>
-       * <li>{@link javax.cache.Cache#putAll(Map)}</li>
+       *    <li>{@link ConcurrentMap#putAll(Map)}</li>
+       *    <li>{@link javax.cache.Cache#putAll(Map)}</li>
        * </ul>
        *
        * DESIGN RATIONALE:
        * <ul>
-       * <li>It makes sense to expose global operation like this
-       * instead of forcing users to iterate over the keys to lookup and call
-       * get individually since Infinispan can do things more efficiently.</li>
-       * <li>Since this is a write-only operation, no entry attributes can be
-       * queried, hence the only reasonable thing can be returned is Void.</li>
-       * <li>It still makes sense to return Observable<Void> instead of
-       * CompletableFuture<Void> in case the user wants to do something as each
-       * entry gets consumed, e.g. keep track of progress.</li>
+       *    <li>It makes sense to expose global operation like this
+       *    instead of forcing users to iterate over the keys to lookup and call
+       *    get individually since Infinispan can do things more efficiently.
+       *    </li>
+       *    <li>Since this is a write-only operation, no entry attributes can be
+       *    queried, hence the only reasonable thing can be returned is Void.
+       *    </li>
+       *    <li>It still makes sense to return Observable<Void> instead of
+       *    CompletableFuture<Void> in case the user wants to do something as each
+       *    entry gets consumed, e.g. keep track of progress.
+       *    </li>
        * </ul>
        */
       Observable<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
