@@ -20,6 +20,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * A {@link ConcurrentMap} implementation that uses the operations exposed by
+ * {@link ReadOnlyMap}, {@link WriteOnlyMap} and {@link ReadWriteMap}, and
+ * validates their usefulness.
+ */
 public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    final ReadOnlyMap<K, V> readOnly;
@@ -57,6 +62,8 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
    }
 
    private static final class NotEmptySubscriber<T> extends Subscriber<T> {
+      // The prototype assumes single-threaded onNext() callbacks,
+      // but the concurrency access semantics are still TBD.
       boolean isEmpty = true;
       @Override public void onNext(T t) {
          isEmpty = false;
@@ -78,6 +85,8 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
    }
 
    private static final class FindValueSubscriber<K, V> extends Subscriber<ReadEntryView<K, V>> {
+      // The prototype assumes single-threaded onNext() callbacks,
+      // but the concurrency access semantics are still TBD.
       final Object valueToFind;
       boolean found = false;
 

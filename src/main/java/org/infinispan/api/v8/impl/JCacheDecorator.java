@@ -4,6 +4,9 @@ import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap;
+import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
+import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
+import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Status;
@@ -24,14 +27,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * A {@link javax.cache.Cache} implementation that uses the operations exposed by
+ * {@link ReadOnlyMap}, {@link WriteOnlyMap} and {@link ReadWriteMap}, and
+ * validates their usefulness.
+ */
 public class JCacheDecorator<K, V> implements Cache<K, V> {
 
-   final FunctionalMap.ReadOnlyMap<K, V> readOnly;
-   final FunctionalMap.WriteOnlyMap<K, V> writeOnly;
-   final FunctionalMap.ReadWriteMap<K, V> readWrite;
+   final ReadOnlyMap<K, V> readOnly;
+   final WriteOnlyMap<K, V> writeOnly;
+   final ReadWriteMap<K, V> readWrite;
 
    public JCacheDecorator(FunctionalMapImpl<K, V> map) {
       FunctionalMapImpl<K, V> blockingMap = map.withParams(Param.WaitMode.BLOCKING);

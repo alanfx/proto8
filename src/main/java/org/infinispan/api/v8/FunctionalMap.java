@@ -125,7 +125,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       <R> CompletableFuture<R> eval(K key, Function<ReadEntryView<K, V>, R> f);
 
       /**
-       * Evaluate a function on a key and potential value associated in
+       * Evaluate a read-only function on a key and potential value associated in
        * the functional map, for each of the keys in the set passed in, and
        * returns an {@link Observable} to which the user can subscribe get
        * asynchronous callbacks as each function's result is computed.
@@ -293,7 +293,11 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       CompletableFuture<Void> eval(K key, Consumer<WriteEntryView<V>> f);
 
       /**
-       * Evaluate a function... TODO...
+       * Evaluate a write-only {@link BiConsumer} operation, with a value
+       * passed in and a {@link WriteEntryView} of the value associated with
+       * the key, for each of the keys in the set passed in, and
+       * returns an {@link Observable} to which the user can subscribe get
+       * asynchronous callbacks as each operation completes.
        *
        * This method can be used to implement operations such as:
        *
@@ -316,50 +320,113 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    entry gets consumed, e.g. keep track of progress.
        *    </li>
        * </ul>
+       *
+       * @param entries the key/value pairs associated with each of the
+       *             {@link WriteEntryView} passed in the function callbacks
+       * @param f operation that consumes a value associated with a key in the
+       *          entries collection and the {@link WriteEntryView} associated
+       *          with that key in the cache
+       * @return an {@link Observable} who will emit a null element for
+       *         each completed write function execution
        */
       Observable<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
 
       /**
+       * Evaluate a write-only {@link Consumer} operation with the
+       * {@link WriteEntryView} of the value associated with the key, for each
+       * of the keys in the set passed in, and returns an {@link Observable}
+       * to which the user can subscribe get asynchronous callbacks as each
+       * operation completes.
+       *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#removeAll(Set)}.
        *
        * DESIGN RATIONALE:
        * <ul>
-       * <li>It makes sense to expose global operation like this
-       * instead of forcing users to iterate over the keys to lookup and call
-       * get individually since Infinispan can do things more efficiently.</li>
-       * <li>Since this is a write-only operation, no entry attributes can be
-       * queried, hence the only reasonable thing can be returned is Void.</li>
-       * <li>It still makes sense to return Observable<Void> instead of
-       * CompletableFuture<Void> in case the user wants to do something as each
-       * entry gets consumed, e.g. keep track of progress.</li>
+       *    <li>It makes sense to expose global operation like this
+       *    instead of forcing users to iterate over the keys to lookup and call
+       *    get individually since Infinispan can do things more efficiently.
+       *    </li>
+       *    <li>Since this is a write-only operation, no entry attributes can be
+       *    queried, hence the only reasonable thing can be returned is Void.
+       *    </li>
+       *    <li>It still makes sense to return Observable<Void> instead of
+       *    CompletableFuture<Void> in case the user wants to do something as each
+       *    entry gets consumed, e.g. keep track of progress.
+       *    </li>
        * </ul>
+       *
+       * @param keys the keys associated with each of the {@link WriteEntryView}
+       *             passed in the function callbacks
+       * @param f operation that the {@link WriteEntryView} associated with
+       *          one of the keys passed in
+       * @return an {@link Observable} who will emit a null element for
+       *         each completed write function execution
        */
-      Observable<Void> evalMany(Set<? extends K> m, Consumer<WriteEntryView<V>> f);
+      Observable<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f);
 
       /**
+       * Provides an Observable to which subscribers can be registered to work
+       * on all the cached values.
+       *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#removeAll()}.
+       *
+       * @return an {@link Observable} who will emit an element for each cached value
        */
       Observable<WriteEntryView<V>> values();
 
       /**
+       * Truncate the contents of the cache, returning a {@link CompletableFuture}
+       * that will be completed when the truncate process completes.
+       *
        * This method can be used to implement:
        *
        * <ul>
-       * <li>{@link ConcurrentMap#clear()}</li>
-       * <li>{@link javax.cache.Cache#clear()}</li>
+       *    <li>{@link ConcurrentMap#clear()}</li>
+       *    <li>{@link javax.cache.Cache#clear()}</li>
        * </ul>
+       *
+       * @return a {@link CompletableFuture} that completes when the truncat
+       *         has finished
        */
       CompletableFuture<Void> truncate();
 
       WriteListeners<K, V> listeners();
    }
 
+   /**
+    * Exposes read-write operations that can be executed against the functional map.
+    * The read-write operations that can be applied per entry are exposed by
+    * {@link ReadWriteEntryView}.
+    *
+    * DESIGN RATIONALES:
+    * <ul>
+    *    <li>Why does it make sense to expose read-write operations?
+    *    Read-write operations offer the possibility of writing values or
+    *    metadata parameters, and returning previously stored information.
+    *    Read-write operations are also crucial for implementing conditional,
+    *    compare-and-swap (CAS) like operations.
+    *    </li>
+    * </ul>
+    */
    interface ReadWriteMap<K, V> extends FunctionalMap<K, V> {
+      /**
+       * Tweak read-write functional map executions providing {@link Param} instances.
+       */
       ReadWriteMap<K, V> withParams(Param<?>... ps);
 
       /**
+       * Evaluate a read-write function on the value and metadata associated
+       * with the key and return a {@link CompletableFuture} with the return
+       * type of the function. If the user is not sure if the key is present,
+       * {@link ReadWriteEntryView#find()} can be used to find out for sure.
+       *
+       * By returning {@link CompletableFuture} instead of the function's
+       * return type directly, the method hints at the possibility that to
+       * executing the function might require remote data present in either
+       * a persistent store or a remote clustered node.
+       *
        * This method can be used to implement single-key read-write operations
        * in {@link ConcurrentMap} and {@link javax.cache.Cache} that do not
        * depend on value information given by the user such as:
@@ -370,13 +437,30 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * <li>{@link javax.cache.Cache#getAndRemove(Object)}</li>
        * <li>{@link javax.cache.Cache#invoke(Object, EntryProcessor, Object...)}</li>
        * </ul>
+       *
+       * @param key the key associated with the {@link ReadWriteEntryView} to be
+       *            passed to the function.
+       * @param f function that takes a {@link ReadWriteEntryView} associated with
+       *          the key, and returns a value.
+       * @param <R> function return type
+       * @return a {@link CompletableFuture} which will be completed with the
+       *         returned value from the function
        */
       <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<K, V>, R> f);
 
       /**
-       * Evaluate a read-write function on the value associated with the key,
-       * with the capability to both update the value and metadata associated
-       * with that key, and return previous value or metadata.
+       * Evaluate a read-write function, with a value passed in and a
+       * {@link WriteEntryView} of the value associated with the key, and
+       * return a {@link CompletableFuture} which will be completed with the
+       * returned value by the function.
+       *
+       * This method provides the the capability to both update the value and
+       * metadata associated with that key, and return previous value or metadata.
+       *
+       * By returning {@link CompletableFuture} instead of the function's
+       * return type directly, the method hints at the possibility that to
+       * executing the function might require remote data present in either
+       * a persistent store or a remote clustered node.
        *
        * This method can be used to implement the vast majority of single-key
        * read-write operations in {@link ConcurrentMap} and {@link javax.cache.Cache}
@@ -395,23 +479,110 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * <li>{@link javax.cache.Cache#replace(Object, Object)}</li>
        * <li>{@link javax.cache.Cache#getAndReplace(Object, Object)}</li>
        * </ul>
+       *
+       * DESIGN RATIONALES:
+       * <ul>
+       *    <li>Why provide this operation? Isn't {@link #eval(Object, Function)} enough?
+       *    The functionality provided by this function could indeed be implemented
+       *    with {@link #eval(Object, Function)}, but there's a crucial difference.
+       *    If you want to store a value and reference the value to be stored
+       *    from the passed in operation, {@link #eval(Object, Function)} needs
+       *    to capture that value. Capturing means that each time the operation
+       *    is called, a new lambda needs to be instantiated. By offering a
+       *    {@link BiFunction} that takes user provided value as first parameter,
+       *    the operation does not capture any external objects when implementing
+       *    simple operations such as {@link javax.cache.Cache#getAndPut(Object, Object)},
+       *    and hence, the {@link BiFunction} could be cached and reused each
+       *    time it's invoked.
+       *    </li>
+       * </ul>
+       *
+       * @param key the key associated with the {@link ReadWriteEntryView} to be
+       *            passed to the operation
+       * @param value value to write, passed in as first parameter to the {@link BiFunction}.
+       * @param f operation that takes a user defined value, and a
+       *          {@link ReadWriteEntryView} associated with the key, and writes
+       *          to the {@link ReadWriteEntryView} passed in, possibly
+       *          returning previously stored value or metadata information
+       * @param <R> type of the function's return
+       * @return a {@link CompletableFuture} which will be completed with the
+       *         returned value from the function
        */
       <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
 
       /**
-       * TODO: Put a set of keys returning previous values/metaparams
+       * Evaluate a read-write {@link BiFunction}, with a value passed in and
+       * a {@link ReadWriteEntryView} of the value associated with
+       * the key, for each of the keys in the set passed in, and
+       * returns an {@link Observable} to which the user can subscribe to get
+       * each of the return objects by each of the {@link BiFunction} invocations.
+       *
+       * This method can be used to implement operations that store a set of
+       * keys and return previous values or metadata parameters.
+       *
+       * DESIGN RATIONALE:
+       * <ul>
+       *    <li>It makes sense to expose global operation like this
+       *    instead of forcing users to iterate over the keys to lookup and call
+       *    get individually since Infinispan can do things more efficiently.
+       *    </li>
+       * </ul>
+       *
+       * @param entries the key/value pairs associated with each of the
+       *             {@link ReadWriteEntryView} passed in the function callbacks
+       * @param f function that takes in a value associated with a key in the
+       *          entries collection and the {@link ReadWriteEntryView} associated
+       *          with that key in the cache
+       * @return an {@link Observable} who will emit the returned object for
+       *         each executed {@link BiFunction}
        */
-      <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
+      <R> Observable<R> evalMany(Map<? extends K, ? extends V> entries, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
 
       /**
-       * TODO: Remove a set of keys returning previous values/metaparams
+       * Evaluate a read-write {@link Function} operation with the
+       * {@link ReadWriteEntryView} of the value associated with the key, for each
+       * of the keys in the set passed in, and returns an {@link Observable}
+       * to which the user can subscribe get asynchronous callbacks for each
+       * returned object by the {@link Function}
        *
-       * {@link javax.cache.Cache#invokeAll(Set, EntryProcessor, Object...)}
+       * This method can be used to implement operations such as
+       * {@link javax.cache.Cache#invokeAll(Set, EntryProcessor, Object...)},
+       * or a remove a set of keys returning previous values or metadata
+       * parameters.
+       *
+       * @param keys the keys associated with each of the {@link ReadWriteEntryView}
+       *             passed in the function callbacks
+       * @param f function that the {@link ReadWriteEntryView} associated with
+       *          one of the keys passed in, and returns a value
+       * @return an {@link Observable} who will emit an element for each
+       *         returned object from the executed {@link Function}
        */
       <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f);
 
       /**
-       * TODO: Remove all cached entries individually returning previous values/metaparams
+       * Provides an Observable to which subscribers can be registered to work
+       * on all the cached entries.
+       *
+       * This method can be used to implement operations such as:
+       * <ul>
+       *    <li>{@link ConcurrentMap#containsValue(Object)}</li>
+       *    <li>{@link ConcurrentMap#values()}</li>
+       *    <li>{@link ConcurrentMap#entrySet()}</li>
+       *    <li>{@link javax.cache.Cache#iterator()}</li>
+       * </ul>
+       *
+       * @return an {@link Observable} who will emit an element for each cached entry
+       */
+
+      /**
+       * Provides an Observable to which subscribers can be registered to
+       * execute a read-write operation on all cached entries.
+       *
+       * This method can be used to an operation that removes all cached
+       * entries individually, and returns previous value and/or metadata
+       * parameters.
+       *
+       * @return an {@link Observable} who will emit an element for each cached entry
        */
       Observable<ReadWriteEntryView<K, V>> entries();
 

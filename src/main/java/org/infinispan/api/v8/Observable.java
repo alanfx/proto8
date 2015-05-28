@@ -7,8 +7,6 @@ import java.util.function.Consumer;
  * An {@link Observable} offers an asynchronous, "push" style, way to subscribe
  * to operations returning multiple results that as they become available.
  *
- * TODO: Add more on usage...
- *
  * {@link java.util.concurrent.CompletableFuture} and {@link Observable} are
  * very similar but whereas {@link java.util.concurrent.CompletableFuture}
  * deals with single, asynchronous, computation result, {@link Observable}
@@ -156,6 +154,8 @@ public interface Observable<T> {
     * Observer can be registered with {@link Observable} to work with its
     * emitted elements, deal with errors and find out when {@link Observable}
     * has completed emitting all elements.
+    *
+    * TODO: The concurrency semantics of the callbacks is TBD (e.g. whether onNext() can be called in parallel).
     */
    interface Observer<T> {
       /**

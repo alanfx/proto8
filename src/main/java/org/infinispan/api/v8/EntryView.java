@@ -2,6 +2,8 @@ package org.infinispan.api.v8;
 
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Entry views expose cached entry information to the user. Depending on the
@@ -63,25 +65,52 @@ public class EntryView {
       Optional<V> find();
    }
 
+   /**
+    * Expose a write-only facade for a cache entry potentially associated with a key
+    * in the functional map which allows the cache entry to be written with
+    * new value and/or new metadata parameters.
+    */
    public interface WriteEntryView<V> {
       /**
-       * Set this value.
+       * Set this value along with optional metadata parameters.
        *
-       * It returns 'Void' instead of 'void' in order to avoid, as much as possible,
-       * the need to add `Consumer` overloaded methods in FunctionalCache.
+       * DESIGN RATIONALE:
+       * <ul>
+       *    <li>It returns 'Void' instead of 'void' in order to avoid the need
+       *    to add overloaded methods in functional map that take {@link Consumer}
+       *    instead of {@link Function}. This is what of those annoying side
+       *    effects of the java language, which didn't make `void` an Object.
+       *    </li>
+       * </ul>
        */
       Void set(V value, MetaParam.Writable... metas);
 
       /**
-       * Removes the value.
+       * Removes the value and any metadata parameters associated with it.
        *
-       * Instead of creating set(Optional<V>...), add a simple remove() method that
-       * removes the value. This feels cleaner and less cumbersome than having to
-       * always pass in Optional to set()
+       * DESIGN RATIONALE:
+       * <ul>
+       *    <li>It returns 'Void' instead of 'void' in order to avoid the need
+       *    to add overloaded methods in functional map that take {@link Consumer}
+       *    instead of {@link Function}. This is what of those annoying side
+       *    effects of the java language, which didn't make `void` an Object.
+       *    </li>
+       *    <li>Why not have a single `set(Optional<V>...)` operation that takes
+       *    {@link Optional#empty()} instead of having a
+       *    {@link #set(Object, MetaParam.Writable[])} and remove()?
+       *    The two-method approach feels cleaner and less cumbersome than
+       *    having to always pass in Optional to set().
+       *    </li>
+       * </ul>
        */
       Void remove();
    }
 
+   /**
+    * Expose information about a cache entry potentially associated with a key
+    * in the functional map, and allows that cache entry to be written with
+    * new value and/or new metadata parameters.
+    */
    public interface ReadWriteEntryView<K, V> extends ReadEntryView<K, V>, WriteEntryView<V> {}
 
 }

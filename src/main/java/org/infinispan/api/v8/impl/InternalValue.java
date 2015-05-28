@@ -5,6 +5,11 @@ import org.infinispan.api.v8.MetaParam;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+/**
+ * Internal holder for value and metadata parameters. This is not exposed
+ * externally to users. Value and metadata parameters are exposed via the
+ * different entry view facades.
+ */
 final class InternalValue<V> implements MetaParam.Lookup {
    final V value;
    final MetaParams metaParams;
