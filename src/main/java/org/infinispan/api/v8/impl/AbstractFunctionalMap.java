@@ -3,7 +3,7 @@ package org.infinispan.api.v8.impl;
 import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.Status;
 
-public abstract class AbstractFunctionalMap<K, V> implements FunctionalMap<K, V> {
+abstract class AbstractFunctionalMap<K, V> implements FunctionalMap<K, V> {
 
    protected final FunctionalMapImpl<K, V> functionalMap;
 

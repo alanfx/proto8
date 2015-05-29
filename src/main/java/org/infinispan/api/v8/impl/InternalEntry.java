@@ -6,15 +6,15 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 /**
- * Internal holder for value and metadata parameters. This is not exposed
+ * Internal entry holder for value and metadata parameters. This is not exposed
  * externally to users. Value and metadata parameters are exposed via the
  * different entry view facades.
  */
-final class InternalValue<V> implements MetaParam.Lookup {
+final class InternalEntry<V> implements MetaParam.Lookup {
    final V value;
    final MetaParams metaParams;
 
-   InternalValue(V value, MetaParams metaParams) {
+   InternalEntry(V value, MetaParams metaParams) {
       this.value = value;
       this.metaParams = metaParams;
    }
@@ -24,7 +24,7 @@ final class InternalValue<V> implements MetaParam.Lookup {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
 
-      InternalValue<?> that = (InternalValue<?>) o;
+      InternalEntry<?> that = (InternalEntry<?>) o;
 
       if (!value.equals(that.value)) return false;
       return metaParams.equals(that.metaParams);
@@ -40,7 +40,7 @@ final class InternalValue<V> implements MetaParam.Lookup {
 
    @Override
    public String toString() {
-      return "InternalValue{" +
+      return "InternalEntry{" +
          "value=" + value +
          ", metaParams=" + metaParams +
          '}';

@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentMap;
 public final class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
 
    final Params params;
-   final ConcurrentMap<K, InternalValue<V>> data;
+   final ConcurrentMap<K, InternalEntry<V>> data;
    final ListenerNotifier<K, V> notifier;
 
    volatile Status status;
 
-   private FunctionalMapImpl(Params params, ConcurrentMap<K, InternalValue<V>> data) {
+   private FunctionalMapImpl(Params params, ConcurrentMap<K, InternalEntry<V>> data) {
       this.params = params;
       this.data = data;
       this.notifier = new ListenersImpl<>();
@@ -26,7 +26,7 @@ public final class FunctionalMapImpl<K, V> implements FunctionalMap<K, V> {
       return new FunctionalMapImpl<>(Params.create(), new ConcurrentHashMap<>());
    }
 
-   private static <K, V> FunctionalMapImpl<K, V> create(Params params, ConcurrentMap<K, InternalValue<V>> data) {
+   private static <K, V> FunctionalMapImpl<K, V> create(Params params, ConcurrentMap<K, InternalEntry<V>> data) {
       return new FunctionalMapImpl<>(params, data);
    }
 

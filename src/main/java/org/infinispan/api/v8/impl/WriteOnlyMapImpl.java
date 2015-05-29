@@ -2,7 +2,7 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
-import org.infinispan.api.v8.Listeners;
+import org.infinispan.api.v8.Listeners.WriteListeners;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
@@ -140,9 +140,9 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
 
                @Override
                public Subscription subscribe(Subscriber<? super WriteEntryView<V>> subscriber) {
-                  Iterator<Map.Entry<K, InternalValue<V>>> it = functionalMap.data.entrySet().iterator();
+                  Iterator<Map.Entry<K, InternalEntry<V>>> it = functionalMap.data.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
-                     Map.Entry<K, InternalValue<V>> entry = it.next();
+                     Map.Entry<K, InternalEntry<V>> entry = it.next();
                      subscriber.onNext(EntryViews.writeOnly(entry.getKey(), WriteOnlyMapImpl.this));
                   }
 
@@ -173,7 +173,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
    }
 
    @Override
-   public Listeners.WriteListeners<K, V> listeners() {
+   public WriteListeners<K, V> listeners() {
       return functionalMap.notifier;
    }
 

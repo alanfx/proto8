@@ -3,6 +3,7 @@ package org.infinispan.api.v8.impl;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.Listeners;
+import org.infinispan.api.v8.Listeners.ReadWriteListeners;
 import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 
@@ -83,11 +84,11 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
 
    @Override
    public Observable<ReadWriteEntryView<K, V>> entries() {
-      return null;  // TODO: Customise this generated block
+      throw new IllegalStateException("Not yet implemented");
    }
 
    @Override
-   public Listeners.ReadWriteListeners<K, V> listeners() {
+   public ReadWriteListeners<K, V> listeners() {
       return functionalMap.notifier;
    }
 

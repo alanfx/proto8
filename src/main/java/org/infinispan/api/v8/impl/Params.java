@@ -12,10 +12,12 @@ import java.util.List;
  * DESIGN RATIONALES:
  * <ul>
  *    <il>Internally, parameters are stored in an array which is indexed by a
- *    parameter's {@link Param#id()}</il>
+ *    parameter's {@link Param#id()}
+ *    </il>
  *    <il>All parameters have default values which are stored in a static
  *    array field in {@link Params} class, which are used to as base collection
- *    when adding or overriding parameters.</il>
+ *    when adding or overriding parameters.
+ *    </il>
  * </ul>
  */
 class Params {

@@ -1,9 +1,15 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Observable.Observer;
 
-class Observers {
+/**
+ * Factory class for observers
+ */
+final class Observers {
+
+   public Observers() {
+      // Cannot be instantiated, it's just a holder class
+   }
 
    public static <T> Observer<T> noop() {
       return new NoopObserver<>();

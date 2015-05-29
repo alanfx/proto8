@@ -30,11 +30,19 @@ import java.util.function.Function;
  *    operations, which are write-only...etc, which also helps the user quickly
  *    see what they can do without being obstructed by other operation types.
  *    </li>
+ *    <li>The conscious decision to separate read-only, write-only and
+ *    read-write interfaces helps massively with type safety. So, if a user
+ *    gets a read-only map, it can't write to it by mistake since no such
+ *    APIs are exposed. The same happens with write-only maps, the user can
+ *    only write and cannot make the mistake of reading from the entry view
+ *    because read operations are not exposed. The previous design did not
+ *    have this level of type safety and hence it relied on runtime exceptions
+ *    to catch these wrong combinations.</li>
  *    <li>In the original design, we defined custom functional interfaces that
  *    were serializable. By doing this, we could ship them around and apply
  *    them remotely. However, for a function to be serializable, it can't
  *    capture non-serializable objects which these days can only be detected
- *    at runtime, hence it's not very typesafe. On top of that, using foreign
+ *    at runtime, hence it's not very type safe. On top of that, using foreign
  *    function definitions would have made the code harder to read. For all
  *    these reasons, we've gone for the approach of using standard lambda
  *    functions. When these have to run in a clustered environment, instead of
@@ -44,7 +52,8 @@ import java.util.function.Function;
  *    Infinispan works internally, bringing necessary elements from other
  *    nodes, executing operations locally and shipping results around. In the
  *    future, we might decide to make these functions marshallable, but
- *    outside the standard</li>
+ *    outside the standard.
+ *    </li>
  * </ul>
  */
 public interface FunctionalMap<K, V> extends AutoCloseable {
@@ -392,6 +401,9 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        */
       CompletableFuture<Void> truncate();
 
+      /**
+       * Allows to write-only listeners to be registered.
+       */
       WriteListeners<K, V> listeners();
    }
 
@@ -587,7 +599,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       Observable<ReadWriteEntryView<K, V>> entries();
 
       /**
-       *
+       * Allows to read-write listeners to be registered.
        */
       ReadWriteListeners<K, V> listeners();
    }

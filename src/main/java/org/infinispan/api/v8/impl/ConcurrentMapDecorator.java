@@ -41,7 +41,7 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
    @Override
    public int size() {
       Observable<K> keys = readOnly.keys();
-      CountingObserver<K> obs = new CountingObserver<K>();
+      CountingObserver<K> obs = new CountingObserver<>();
       keys.subscribe(obs); // Wait mode is BLOCKING, so will block until completed
       return obs.count;
    }

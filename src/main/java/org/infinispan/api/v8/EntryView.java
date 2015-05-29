@@ -16,7 +16,11 @@ import java.util.function.Function;
  *    <il>{@link ReadWriteEntryView}: read-write entry view</il>
  * </ul>
  */
-public class EntryView {
+public final class EntryView {
+
+   private EntryView() {
+      // Cannot be instantiated, it's just a holder class
+   }
 
    /**
     * Expose read-only information about a cache entry potentially associated

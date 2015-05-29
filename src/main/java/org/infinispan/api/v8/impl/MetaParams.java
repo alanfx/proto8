@@ -11,8 +11,41 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 /**
- * TODO: Why id cannot be used as index
- * TODO: Why sequential lookup is just fine...
+ * Represents a {@link MetaParam} collection.
+ *
+ * DESIGN RATIONALES:
+ * <ul>
+ *    <il>In {@link org.infinispan.api.v8.impl.Params}, the internal array
+ *    where each parameter was stored was indexed by
+ *    {@link org.infinispan.api.v8.Param#id()}. This worked fine because the
+ *    available parameters are exclusively controlled by the Infinispan.
+ *    This is not the case with {@link org.infinispan.api.v8.MetaParam}
+ *    instances where we expect users to add their own types.
+ *    For MetaParams, an array is still used but each metadata parameters
+ *    index has nothing to do with a metadata parameter's id. So, that means
+ *    when looking up metadata parameters, the lookup is sequential.
+ *    </il>
+ *    <il>Metadata parameter lookup is sequential, which is O(n), isn't that a problem?
+ *    Not really, we expect that the number of metadata parameters to be stored
+ *    along with a cached entry to be small, less than 10 metadata parameters
+ *    per collection. So, looking up a metadata parameter array sequentially would
+ *    have a small impact performance wise.
+ *    </il>
+ *    <li>Why are you obsessed with storing Metadata parameters within an array?
+ *    Because we want metadata parameter storage to consume as little memory
+ *    as possible while retaining flexibility when adding/removing new metadata
+ *    parameters. We want to consume as little memory as possible because each
+ *    cached entry will have a reference to the metadata parameters.
+ *    </li>
+ *    <li>Why is metadata parameters class not thread safe? Because we expect
+ *    any updates to it to acquire write locks on the entire
+ *    {@link InternalEntry} which references the
+ *    metadata parameters collection, and hence any updates could be done
+ *    without the need to keep metadata parameters concurrently safe. Also,
+ *    remember that metadata parameters is internal only. Users can retrieve
+ *    or update individual metadata parameters but they cannot act on the
+ *    globally at the metadata parameter collection level.</li>
+ * </ul>
  */
 @NotThreadSafe
 final class MetaParams {
@@ -75,7 +108,6 @@ final class MetaParams {
 
    void addMany(MetaParam.Writable... metaParams) {
       if (metas.length == 0) metas = metaParams;
-      //else if (metas.length == 1) add(metaParams[0]);
       else {
          List<MetaParam<?>> notFound = new ArrayList<>(metaParams.length);
          for (MetaParam.Writable newMeta : metaParams) {

@@ -3,7 +3,6 @@ package org.infinispan.api.v8.impl;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
-import org.infinispan.api.v8.FunctionalMap;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
@@ -27,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 

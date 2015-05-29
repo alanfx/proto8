@@ -48,7 +48,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
                @Override
                public Subscription subscribe(Observer<? super R> observer) {
                   s.forEach(k -> {
-                     InternalValue<V> entry = functionalMap.data.get(k);
+                     InternalEntry<V> entry = functionalMap.data.get(k);
                      if (entry != null) {
                         R result = f.apply(EntryViews.readOnly(k, entry));
                         observer.onNext(result);
@@ -63,7 +63,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
                   Iterator<? extends K> it = s.iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
                      K k = it.next();
-                     InternalValue<V> entry = functionalMap.data.get(k);
+                     InternalEntry<V> entry = functionalMap.data.get(k);
                      if (entry != null) {
                         R result = f.apply(EntryViews.readOnly(k, entry));
                         subscriber.onNext(result);
@@ -75,7 +75,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
                }
             };
          default:
-            throw new IllegalStateException();
+            throw new IllegalStateException("Not yet implemented");
       }
    }
 
@@ -104,7 +104,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
                }
             };
          default:
-            throw new IllegalStateException();
+            throw new IllegalStateException("Not yet implemented");
       }
    }
 
@@ -124,9 +124,9 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
 
                @Override
                public Subscription subscribe(Subscriber<? super ReadEntryView<K, V>> subscriber) {
-                  Iterator<Map.Entry<K, InternalValue<V>>> it = functionalMap.data.entrySet().iterator();
+                  Iterator<Map.Entry<K, InternalEntry<V>>> it = functionalMap.data.entrySet().iterator();
                   while (it.hasNext() && !subscriber.isUnsubscribed()) {
-                     Map.Entry<K, InternalValue<V>> entry = it.next();
+                     Map.Entry<K, InternalEntry<V>> entry = it.next();
                      subscriber.onNext(EntryViews.readOnly(entry.getKey(), entry.getValue()));
                   }
 
@@ -135,7 +135,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
                }
             };
          default:
-            throw new IllegalStateException();
+            throw new IllegalStateException("Not yet implemented");
       }
    }
 

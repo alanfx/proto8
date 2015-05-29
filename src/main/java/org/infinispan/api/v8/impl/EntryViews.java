@@ -9,9 +9,13 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 
-class EntryViews {
+final class EntryViews {
 
-   static <K, V> ReadEntryView<K, V> readOnly(K key, InternalValue<V> entry) {
+   private EntryViews() {
+      // Cannot be instantiated, it's just a holder class
+   }
+
+   static <K, V> ReadEntryView<K, V> readOnly(K key, InternalEntry<V> entry) {
       return new ReadViewImpl<>(key, entry);
    }
 
@@ -29,9 +33,9 @@ class EntryViews {
 
    private static final class ReadViewImpl<K, V> implements ReadEntryView<K, V> {
       final K key;
-      final InternalValue<V> entry;
+      final InternalEntry<V> entry;
 
-      private ReadViewImpl(K key, InternalValue<V> entry) {
+      private ReadViewImpl(K key, InternalEntry<V> entry) {
          this.entry = entry;
          this.key = key;
       }
@@ -47,7 +51,7 @@ class EntryViews {
       }
 
       @Override
-      public V get() {
+      public V get() throws NoSuchElementException {
          if (entry == null || entry.value == null)
             throw new NoSuchElementException("No value present");
 
@@ -66,11 +70,11 @@ class EntryViews {
    }
 
    private static final class WriteViewImpl<K, V> implements WriteEntryView<V> {
-      final ConcurrentMap<K, InternalValue<V>> data;
+      final ConcurrentMap<K, InternalEntry<V>> data;
       final K key;
       final ListenerNotifier<K, V> notifier;
 
-      private WriteViewImpl(K key, ConcurrentMap<K, InternalValue<V>> data, ListenerNotifier<K, V> notifier) {
+      private WriteViewImpl(K key, ConcurrentMap<K, InternalEntry<V>> data, ListenerNotifier<K, V> notifier) {
          this.data = data;
          this.key = key;
          this.notifier = notifier;
@@ -80,28 +84,29 @@ class EntryViews {
       public Void set(V value, MetaParam.Writable... metas) {
          MetaParams metaParams = MetaParams.empty();
          metaParams.addMany(metas);
-         InternalValue<V> internalValue = new InternalValue<>(value, metaParams);
-         data.put(key, internalValue);
+         InternalEntry<V> internalEntry = new InternalEntry<>(value, metaParams);
+         data.put(key, internalEntry);
          // Data written, no assumptions about previous value can be made,
          // hence we cannot distinguish between create or update.
-         notifier.notifyOnWrite(EntryViews.readOnly(key, internalValue));
+         notifier.notifyOnWrite(EntryViews.readOnly(key, internalEntry));
          return null;
       }
 
       @Override
       public Void remove() {
          data.remove(key);
+         // For remove write-only listener events, create a value-less read entry view
          notifier.notifyOnWrite(EntryViews.noValue(key));
          return null;
       }
    }
 
    private static final class ReadWriteViewImpl<K, V> implements ReadWriteEntryView<K, V> {
-      final ConcurrentMap<K, InternalValue<V>> data;
+      final ConcurrentMap<K, InternalEntry<V>> data;
       final K key;
       final ListenerNotifier<K, V> notifier;
 
-      private ReadWriteViewImpl(K key, ConcurrentMap<K, InternalValue<V>> data, ListenerNotifier<K, V> notifier) {
+      private ReadWriteViewImpl(K key, ConcurrentMap<K, InternalEntry<V>> data, ListenerNotifier<K, V> notifier) {
          this.data = data;
          this.key = key;
          this.notifier = notifier;
@@ -114,20 +119,20 @@ class EntryViews {
 
       @Override
       public Optional<V> find() {
-         InternalValue<V> curr = data.get(key);
+         InternalEntry<V> curr = data.get(key);
          return curr == null ? Optional.empty() : Optional.ofNullable(curr.value);
       }
 
       @Override
       public Void set(V value, MetaParam.Writable... metas) {
-         InternalValue<V> prev = data.get(key);
+         InternalEntry<V> prev = data.get(key);
          if (prev != null) {
             prev.metaParams.addMany(metas);
-            InternalValue<V> iv = new InternalValue<>(value, prev.metaParams);
+            InternalEntry<V> iv = new InternalEntry<>(value, prev.metaParams);
             data.put(key, iv);
             notifier.notifyOnModify(EntryViews.readOnly(key, prev), EntryViews.readOnly(key, iv));
          } else {
-            InternalValue<V> iv = new InternalValue<>(value, MetaParams.of(metas));
+            InternalEntry<V> iv = new InternalEntry<>(value, MetaParams.of(metas));
             data.put(key, iv);
             notifier.notifyOnCreate(EntryViews.readOnly(key, iv));
          }
@@ -136,26 +141,26 @@ class EntryViews {
 
       @Override
       public Void remove() {
-         InternalValue<V> prev = data.remove(key);
+         InternalEntry<V> prev = data.remove(key);
          notifier.notifyOnRemove(EntryViews.readOnly(key, prev));
          return null;
       }
 
       @Override
       public <T> Optional<T> findMetaParam(MetaParam.Id<T> id) {
-         InternalValue<V> curr = data.get(key);
+         InternalEntry<V> curr = data.get(key);
          return curr.findMetaParam(id);
       }
 
       @Override
       public <T> T getMetaParam(MetaParam.Id<T> id) {
-         InternalValue<V> curr = data.get(key);
+         InternalEntry<V> curr = data.get(key);
          return curr.getMetaParam(id);
       }
 
       @Override
-      public V get() {
-         InternalValue<V> curr = data.get(key);
+      public V get() throws NoSuchElementException {
+         InternalEntry<V> curr = data.get(key);
          if (curr == null)
             throw new NoSuchElementException("No value present");
 
@@ -176,7 +181,7 @@ class EntryViews {
       }
 
       @Override
-      public V get() {
+      public V get() throws NoSuchElementException {
          throw new NoSuchElementException("No value");
       }
 
@@ -186,7 +191,7 @@ class EntryViews {
       }
 
       @Override
-      public <T> T getMetaParam(MetaParam.Id<T> id) {
+      public <T> T getMetaParam(MetaParam.Id<T> id) throws NoSuchElementException {
          throw new NoSuchElementException("No metadata available");
       }
 

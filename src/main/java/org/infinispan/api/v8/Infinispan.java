@@ -6,6 +6,8 @@ import org.infinispan.api.v8.impl.FunctionalMapImpl;
 //import org.infinispan.api.v8.impl.MapDecorator;
 
 /**
+ * WORK IN PROGRESS - PLEASE DO NOT REVIEW THIS YET
+ *
  * Infinispan. This class represents the main entry point for creating Infinispan objects
  * (Caches, Locks, etc) and for managing common resources. An Infinispan instance can only
  * be created through a set of builder methods which provide the initial configuration.
@@ -21,6 +23,8 @@ import org.infinispan.api.v8.impl.FunctionalMapImpl;
  * @since 8.0
  */
 public class Infinispan implements AutoCloseable {
+
+   // WORK IN PROGRESS - PLEASE DO NOT REVIEW THIS YET
 
    // Needs to be instantiated by builder
    private Infinispan() {

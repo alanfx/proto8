@@ -14,6 +14,17 @@ import java.util.function.Consumer;
  *
  * DESIGN RATIONALE:
  * <ul>
+ *    <li>This design is heavily inspired by RxJava. Since this design started,
+ *    Doug Lea has sent an email to the concurrency interest mailing list
+ *    (see http://cs.oswego.edu/pipermail/concurrency-interest/2015-January/013641.html),
+ *    where he proposes a standard API for Java 9. It probably makes sense to
+ *    follow a design closer to that instead of RxJava because it takes into
+ *    account back-pressure and other important concepts for "push" APIs.
+ *    In any case, the design would not vary significantly, but the closer we
+ *    are to proposed Java APIs, the easier it would be to migrate later on.
+ *    Besides, by testing out Doug's proposed API, we can contribute to the
+ *    Doug's desing providing important feedback on usage...etc.
+ *    </li>
  *    <li>Why not use {@link java.util.stream.Stream}?
  *    java.util.stream best supports (multi-stage, possibly-parallel) "pull"
  *    style operations on the elements of collections. Streams work well with
@@ -44,8 +55,6 @@ import java.util.function.Consumer;
  *    Given a {@link java.util.concurrent.CompletableFuture}, you can easily
  *    build a sync and an async API, while building an asynchronous API with
  *    only an synchronous API is quite complex.</li>
- *    <li>TODO: Add relationship with RxJava...
- *    </li>
  * </ul>
  *
  * @param <T>

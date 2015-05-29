@@ -1,9 +1,18 @@
 package org.infinispan.api.v8;
 
+/**
+ * Entry version.
+ */
 public interface EntryVersion<T> {
 
+   /**
+    * Get the underlying representation of the entry's version.
+    */
    T get();
 
+   /**
+    * Compare the entry version.
+    */
    CompareResult compareTo(EntryVersion<T> other);
 
    enum CompareResult {
