@@ -4,20 +4,19 @@ import org.infinispan.api.v8.impl.FunctionalMapImpl;
 import org.infinispan.api.v8.impl.JCacheDecorator;
 import org.junit.Test;
 
-import javax.cache.*;
 import javax.cache.Cache;
-import javax.cache.processor.EntryProcessor;
-import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
-import javax.cache.processor.MutableEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 
 import static org.junit.Assert.*;
 
+/**
+ * Test suite for verifying that the jcache implementation
+ * based on functional map behaves in the correct way.
+ */
 public class JCacheTest {
 
    javax.cache.Cache<Integer, String> jcache = new JCacheDecorator<>(

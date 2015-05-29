@@ -15,6 +15,9 @@ import java.util.Optional;
 
 import static org.junit.Assert.*;
 
+/**
+ * Unit test for metadata parameters collection.
+ */
 public class MetaParamsTest {
 
    @Test
@@ -42,8 +45,6 @@ public class MetaParamsTest {
       metas.add(lifespan);
       assertFalse(metas.isEmpty());
       assertEquals(1, metas.size());
-      //MetaParam<Long> lifespanInstance = metas.get(lifespan.id());
-      //Lifespan lifespanInstance = metas.get(lifespan.id());
       Lifespan lifespanFound = metas.get(Lifespan.ID);
       assertEquals(new Lifespan(1000), lifespanFound);
       assertEquals(1000, metas.get(Lifespan.ID).get().longValue());
@@ -97,7 +98,7 @@ public class MetaParamsTest {
       assertEquals(4, metasOf4.size());
    }
 
-   @Test @Ignore
+   @Test @Ignore("Not yet implemented")
    public void testDuplicateParametersOnConstruction() {
       EntryVersionParam<Long> versionParam1 = new EntryVersionParam<>(new NumericEntryVersion(100));
       EntryVersionParam<Long> versionParam2 = new EntryVersionParam<>(new NumericEntryVersion(200));

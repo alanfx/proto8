@@ -40,6 +40,8 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
    final WriteOnlyMap<K, V> writeOnly;
    final ReadWriteMap<K, V> readWrite;
 
+   // Rudimentary constructor, we'll provide more idiomatic construction
+   // via main Infinispan class which is still to be defined
    public JCacheDecorator(FunctionalMapImpl<K, V> map) {
       FunctionalMapImpl<K, V> blockingMap = map.withParams(Param.WaitMode.BLOCKING);
       this.readOnly = ReadOnlyMapImpl.create(blockingMap);

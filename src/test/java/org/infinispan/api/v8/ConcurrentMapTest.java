@@ -17,6 +17,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * Test suite for verifying that the concurrent map implementation
+ * based on functional map behaves in the correct way.
+ */
 public class ConcurrentMapTest {
 
    ConcurrentMap<Integer, String> map = new ConcurrentMapDecorator<>(

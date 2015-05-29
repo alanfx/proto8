@@ -23,6 +23,13 @@ import java.util.function.Consumer;
 import static org.infinispan.api.v8.EntryVersion.CompareResult.EQUAL;
 import static org.junit.Assert.*;
 
+/**
+ * Test suite for verifying basic functional map functionality,
+ * and for testing out functionality that is not available via standard
+ * {@link java.util.concurrent.ConcurrentMap} nor {@link javax.cache.Cache}
+ * APIs, such as atomic conditional metadata-based replace operations, which
+ * are required by Hot Rod.
+ */
 public class FunctionalMapTest {
 
    private ReadOnlyMap<Integer, String> readOnlyMap;
@@ -115,6 +122,11 @@ public class FunctionalMapTest {
     * Read-write allows for replace operations to happen based on version
     * comparison, and update version information if replace is versions are
     * equals.
+    *
+    * This is the kind of advance operation that Hot Rod prototocol requires
+    * but the current Infinispan API is unable to offer without offering
+    * atomicity at the level of the function that compares the version
+    * information.
     */
    @Test
    public void testReadWriteAllowsForConditionalParameterBasedReplace() {

@@ -21,6 +21,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
+/**
+ * Test suite for verifying functional map listener functionality.
+ */
 public class FunctionalMapListenersTest {
 
    private FunctionalMap.WriteOnlyMap<Integer, String> writeOnlyMap;

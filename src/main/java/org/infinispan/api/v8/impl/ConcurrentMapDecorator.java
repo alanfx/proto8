@@ -31,6 +31,8 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
    final WriteOnlyMap<K, V> writeOnly;
    final ReadWriteMap<K, V> readWrite;
 
+   // Rudimentary constructor, we'll provide more idiomatic construction
+   // via main Infinispan class which is still to be defined
    public ConcurrentMapDecorator(FunctionalMapImpl<K, V> map) {
       FunctionalMapImpl<K, V> blockingMap = map.withParams(WaitMode.BLOCKING);
       this.readOnly = ReadOnlyMapImpl.create(blockingMap);
