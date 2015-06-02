@@ -48,6 +48,9 @@ import java.util.function.Supplier;
  *    in a lot of baggage. Instead, {@link #collect(Supplier, BiConsumer, BiConsumer)}
  *    should be used.
  *    </li>
+ *    <li>{@link java.util.stream.Stream#findFirst()}: The only difference
+ *    with {@link #findAny()} is ordering, so since we do not want to enter
+ *    the ordering business, we leave it out.</li>
  * </ul>
  *
  * @param <T>
@@ -97,8 +100,6 @@ public interface SubStream<T> {
    boolean allMatch(Predicate<? super T> p);
 
    boolean noneMatch(Predicate<? super T> predicate);
-
-   Optional<T> findFirst();
 
    Optional<T> findAny();
 
