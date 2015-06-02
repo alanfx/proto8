@@ -9,7 +9,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
 
 /**
  * A subset of the {@link java.util.stream.Stream} API. The following
@@ -39,7 +38,16 @@ import java.util.stream.Collector;
  *    requires size to be computed first, and then populate it, making it a
  *    potentially expensive operation in a distributed operation. Also,
  *    there are other ways to achieve this, such as mapping to a variable
- *    length collection and then narrowing it down to an array?</li>
+ *    length collection and then narrowing it down to an array?
+ *    </li>
+ *    <li>{@link java.util.stream.Stream#collect(java.util.stream.Collector)}:
+ *    This method is designed to work with {@link java.util.stream.Collectors},
+ *    whose static methods are used as helpers functions, but these are not
+ *    Serializable, and we'd need to investigate whether we can provide
+ *    marshallable versions. Also, {@link java.util.stream.Collectors} brings
+ *    in a lot of baggage. Instead, {@link #collect(Supplier, BiConsumer, BiConsumer)}
+ *    should be used.
+ *    </li>
  * </ul>
  *
  * @param <T>
@@ -78,8 +86,6 @@ public interface SubStream<T> {
 
    <R> R collect(Supplier<R> s, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner);
 
-   <R, A> R collect(Collector<? super T, A, R> collector);
-
    Optional<T> min(Comparator<? super T> comparator);
 
    Optional<T> max(Comparator<? super T> comparator);
@@ -95,15 +101,5 @@ public interface SubStream<T> {
    Optional<T> findFirst();
 
    Optional<T> findAny();
-
-//   private EntryStream() {
-//      // Cannot be instantiated, it's just a holder class
-//   }
-//
-//   public interface ReadStream {
-//      Stream<T> filter(Predicate<? super T> predicate);
-//   }
-
-
 
 }
