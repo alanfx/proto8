@@ -73,38 +73,136 @@ public interface Traversable<T> {
    //       This option is also handy for situations where the lambda captures
    //       objects that simply cannot be marshalled.
 
+   /**
+    * Return a traversable containing elements matching the given predicate.
+    */
    Traversable<T> filter(Predicate<? super T> p);
 
+   /**
+    * Returns a traversable containing the results of applying the given
+    * function over the elements of the traversable.
+    */
    <R> Traversable<R> map(Function<? super T, ? extends R> f);
 
+   /**
+    * Returns a traversable containing the results of replacing each element of
+    * this traversable with the contents of a traverable produced by applying
+    * the provided function to each element.
+    *
+    * From a functional map perspective, this operation is particularly handy
+    * when the values are collections.
+    */
    <R> Traversable<R> flatMap(Function<? super T, ? extends Traversable<? extends R>> f);
 
+   /**
+    * Returns a traversable consisting of the elements of this traversable,
+    * performing an operation for each element as they are consumed.
+    */
    Traversable<T> peek(Consumer<? super T> c);
 
+   /**
+    * Applies an operation to all elements of this traversable.
+    */
    void forEach(Consumer<? super T> c);
 
+   /**
+    * Applies a binary folding operation to a start value and all elements of
+    * this traversable.
+    */
    T reduce(T z, BinaryOperator<T> folder);
 
+   /**
+    * Applies a binary folding operation to all elements of this traversable,
+    * and wraps the result in an optional. If the traversable is empty, it
+    * returns an empty optional.
+    *
+    * TODO: Syntactic sugar of {@link #reduce(Object, BinaryOperator)}. Shall we leave it in?
+    */
    Optional<T> reduce(BinaryOperator<T> folder);
 
+   /**
+    * Applies a binary folding operation to a start value and the result
+    * of each element having a mapping function applied.
+    *
+    * @apiNote This is a map and reduce in one go, which could potentially be
+    * done more efficiently than if a map is executed and then reduce, so leave it in.
+    */
    <U> U reduce(U z, BiFunction<U, ? super T, U> mapper, BinaryOperator<U> folder);
 
+   /**
+    * Transforms the traversable into a result container, first constructed
+    * with the given supplier, and then accumulating elements over it with the
+    * given consumer. The combiner can be used to combine accumulated results
+    * executed in paralell or coming from different nodes in a distributed
+    * environment.
+    */
    <R> R collect(Supplier<R> s, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner);
 
+   /**
+    * Returns an optional containing the minimum element of this traversable
+    * based on the comparator passed in. If the traversable is empty,
+    * it returns an empty optional.
+    *
+    * TODO: This is syntactic sugar for reduction, shall we leave it in?
+    */
    Optional<T> min(Comparator<? super T> comparator);
 
+   /**
+    * Returns an optional containing the maximum element of this traversable
+    * based on the comparator passed in. If the traversable is empty,
+    * it returns an empty optional.
+    *
+    * TODO: This is syntactic sugar for reduction, shall we leave it in?
+    */
    Optional<T> max(Comparator<? super T> comparator);
 
+   /**
+    * Return the number of elements in the traversable.
+    *
+    * TODO: This is syntactic sugar for reduction, shall we leave it in?
+    */
    long count();
 
+   /**
+    * Returns whether any elements of this traversable match the provided predicate.
+    *
+    * @apiNote An important reason to keep this method is the fact as opposed
+    * to a reduction which must evaluate all elements in the traversable, this
+    * method could stop as soon as it has found an element that matches.
+    */
    boolean anyMatch(Predicate<? super T> p);
 
+   /**
+    * Returns whether all elements of this traversable match the provided predicate.
+    *
+    * @apiNote An important reason to keep this method is the fact as opposed
+    * to a reduction which must evaluate all elements in the traversable, this
+    * method could stop as soon as it has found an element that does not match
+    * the predicate.
+    */
    boolean allMatch(Predicate<? super T> p);
 
+   /**
+    * Returns whether no elements of this traversable match the provided predicate.
+    *
+    * @apiNote An important reason to keep this method is the fact as opposed
+    * to a reduction which must evaluate all elements in the traversable, this
+    * method could stop as soon as it has found an element that does matches
+    * the predicate.
+    */
    boolean noneMatch(Predicate<? super T> predicate);
 
+   /**
+    * Returns an optional containing an element of the traversable,
+    * or an empty optional if empty.
+    */
    Optional<T> findAny();
 
+   /**
+    * Closeable iterator for manually iterating over the contents of the
+    * traversable. The iterator also helps with determining when the end of
+    * the traversable has been reached, by checking {@link CloseableIterator#hasNext()}
+    */
    CloseableIterator<T> iterator();
 
 }

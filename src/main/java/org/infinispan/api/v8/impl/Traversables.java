@@ -7,6 +7,7 @@ import org.infinispan.api.v8.Traversable;
 
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
@@ -17,12 +18,18 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class Traversables {
 
    public static <T> Traversable<T> of(Stream<T> stream) {
       return new StreamTraversable<>(stream);
+   }
+
+   public static <T> Traversable<T> eager(Stream<T> stream) {
+      List<T> list = stream.collect(Collectors.toList());
+      return new StreamTraversable<>(list.stream());
    }
 
    private Traversables() {

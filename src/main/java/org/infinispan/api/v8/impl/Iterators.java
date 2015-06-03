@@ -4,13 +4,29 @@ import org.infinispan.api.v8.CloseableIterator;
 import org.infinispan.api.v8.Traversable;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class Iterators {
 
+   /**
+    * Provide a lazily evaluated closeable iterator for a stream.
+    */
    public static <T> CloseableIterator<T> of(Stream<T> stream) {
       return new StreamCloseableIterator<>(stream);
+   }
+
+   /**
+    * Provide an eagerly evaluated closeable iterator for a stream.
+    * By eagerly evaluating the stream, it can fully consumed in advance,
+    * and the closeable iterator returned is simply an iterator over the
+    * already produced streamed results.
+    */
+   public static <T> CloseableIterator<T> eager(Stream<T> stream) {
+      List<T> list = stream.collect(Collectors.toList());
+      return new StreamCloseableIterator<>(list.stream());
    }
 
    private Iterators() {

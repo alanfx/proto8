@@ -60,7 +60,7 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
          case BLOCKING:
             Stream<R> stream = keys.stream()
                .map(k -> f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this)));
-            return Traversables.of(stream);
+            return Traversables.eager(stream);
          default:
             throw new IllegalStateException();
       }

@@ -80,8 +80,12 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void putAll(Map<? extends K, ? extends V> map) {
-      CloseableIterator<Void> it = writeOnly.evalMany(map, (ev, v) -> v.set(ev));
-      it.forEachRemaining(aVoid -> {});
+      // Since blocking is in use, there's no need to consume the iterator for
+      // the put all effects to be executed.
+      // With blocking, the iterator gets pro-actively consumed, and the
+      // return offers the possibility to re-iterate by the user.
+      // Since the iteration here has no result, we can skip the iteration altogether.
+      writeOnly.evalMany(map, (ev, v) -> v.set(ev));
    }
 
    @Override
@@ -153,8 +157,12 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void removeAll(Set<? extends K> keys) {
-      CloseableIterator<Void> it = writeOnly.evalMany(keys, WriteEntryView::remove);
-      it.forEachRemaining(aVoid -> {});
+      // Since blocking is in use, there's no need to consume the iterator for
+      // the put all effects to be executed.
+      // With blocking, the iterator gets pro-actively consumed, and the
+      // return offers the possibility to re-iterate by the user.
+      // Since the iteration here has no result, we can skip the iteration altogether.
+      writeOnly.evalMany(keys, WriteEntryView::remove);
    }
 
    @Override

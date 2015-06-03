@@ -59,7 +59,9 @@ import java.util.function.Function;
  *    is {@link Traversable}. Alternative designs based on push-based
  *    approaches, e.g. Rx Java or similar, have been considered but it has
  *    been decided against it. The main reason is usability, pull-based API
- *    are easier from the user perspective... </li>
+ *    are easier from the user perspective. Even though it's a pull-based API,
+ *    it can be asynchronous underneath since the user can decide to work on
+ *    the traversable or iterator at a later stage.</li>
  * </ul>
  */
 public interface FunctionalMap<K, V> extends AutoCloseable {
@@ -142,8 +144,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
       /**
        * Evaluate a read-only function on a key and potential value associated in
        * the functional map, for each of the keys in the set passed in, and
-       * returns an {@link Observable} to which the user can subscribe get
-       * asynchronous callbacks as each function's result is computed.
+       * returns an {@link Traversable} to work on each computed function's result.
        *
        * The function passed in will be executed for as many keys
        * present in keys collection set. Similar to {@link #eval(Object, Function)},
@@ -167,14 +168,13 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *          the key, and returns a value. It'll be invoked once for each key
        *          passed in
        * @param <R> function return type
-       * @return an {@link Observable} who will emit an element for
-       *         each function return value
+       * @return a sequential {@link Traversable} that can be navigated to
+       *         retrieve each function return value
        */
       <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadEntryView<K, V>, R> f);
 
       /**
-       * Provides an Observable to which subscribers can be registered to work
-       * on all the cached keys.
+       * Provides a {@link Traversable} that allows clients to navigate all cached keys.
        *
        * This method can be used to implement operations such as:
        * <ul>
@@ -183,13 +183,12 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    <li>{@link ConcurrentMap#isEmpty()}</li>
        * </ul>
        *
-       * @return an {@link Observable} who will emit an element for each cached key
+       * @return a sequential {@link Traversable} to navigate each cached key
        */
       Traversable<K> keys();
 
       /**
-       * Provides an Observable to which subscribers can be registered to work
-       * on all the cached entries.
+       * Provides a {@link Traversable} that allows clients to navigate all cached entries.
        *
        * This method can be used to implement operations such as:
        * <ul>
@@ -199,7 +198,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    <li>{@link javax.cache.Cache#iterator()}</li>
        * </ul>
        *
-       * @return an {@link Observable} who will emit an element for each cached entry
+       * @return a sequential {@link Traversable} to navigate each cached entry
        */
       Traversable<ReadEntryView<K, V>> entries();
    }
@@ -311,8 +310,8 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * Evaluate a write-only {@link BiConsumer} operation, with a value
        * passed in and a {@link WriteEntryView} of the value associated with
        * the key, for each of the keys in the set passed in, and
-       * returns an {@link Observable} to which the user can subscribe get
-       * asynchronous callbacks as each operation completes.
+       * returns a {@link CloseableIterator} that allows navigating completion
+       * of the operation executions.
        *
        * This method can be used to implement operations such as:
        *
@@ -330,37 +329,28 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    <li>Since this is a write-only operation, no entry attributes can be
        *    queried, hence the only reasonable thing can be returned is Void.
        *    </li>
-       *    <li>It still makes sense to return Observable<Void> instead of
+       *    <li>It still makes sense to return a CloseableIterator<Void> instead of
        *    CompletableFuture<Void> in case the user wants to do something as each
-       *    entry gets consumed, e.g. keep track of progress.
+       *    operation completes, e.g. keep track of progress.
        *    </li>
        * </ul>
-       *
-       * TODO:
-       *
-       *       // Currently, the iterator needs to be consumed for the function to be
-       // applied to each element in the given map, but in a more realistic
-       // implementation, the operations could happen immediately, as soon as
-       // evalMany has been called, and the iterator to lazily evaluate the
-       // result of those.
-
        *
        * @param entries the key/value pairs associated with each of the
        *             {@link WriteEntryView} passed in the function callbacks
        * @param f operation that consumes a value associated with a key in the
        *          entries collection and the {@link WriteEntryView} associated
        *          with that key in the cache
-       * @return an {@link Observable} who will emit a null element for
-       *         each completed write function execution
+       * @return a {@link CloseableIterator} that can be navigated to follow progress
+       *         as operations get invoked
        */
       CloseableIterator<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
 
       /**
        * Evaluate a write-only {@link Consumer} operation with the
        * {@link WriteEntryView} of the value associated with the key, for each
-       * of the keys in the set passed in, and returns an {@link Observable}
-       * to which the user can subscribe get asynchronous callbacks as each
-       * operation completes.
+       * of the keys in the set passed in, and returns a
+       * {@link CloseableIterator} that allows navigating completion
+       * of the operation executions.
        *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#removeAll(Set)}.
@@ -374,9 +364,9 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    <li>Since this is a write-only operation, no entry attributes can be
        *    queried, hence the only reasonable thing can be returned is Void.
        *    </li>
-       *    <li>It still makes sense to return Observable<Void> instead of
+       *    <li>It still makes sense to return a CloseableIterator<Void> instead of
        *    CompletableFuture<Void> in case the user wants to do something as each
-       *    entry gets consumed, e.g. keep track of progress.
+       *    operation completes, e.g. keep track of progress.
        *    </li>
        * </ul>
        *
@@ -384,19 +374,20 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *             passed in the function callbacks
        * @param f operation that the {@link WriteEntryView} associated with
        *          one of the keys passed in
-       * @return an {@link Observable} who will emit a null element for
-       *         each completed write function execution
+       * @return a {@link CloseableIterator} that can be navigated to follow progress
+       *         as operations get invoked
        */
       CloseableIterator<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f);
 
       /**
-       * Provides an Observable to which subscribers can be registered to work
-       * on all the cached values.
+       * Provides a {@link CloseableIterator} to navigate all cached values
+       * and override or remove their contents.
        *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#removeAll()}.
        *
-       * @return an {@link Observable} who will emit an element for each cached value
+       * @return a {@link CloseableIterator} that allows navigating all cached
+       *         values to either update their contents or remove them
        */
       CloseableIterator<WriteEntryView<V>> values();
 
@@ -541,8 +532,8 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * Evaluate a read-write {@link BiFunction}, with a value passed in and
        * a {@link ReadWriteEntryView} of the value associated with
        * the key, for each of the keys in the set passed in, and
-       * returns an {@link Observable} to which the user can subscribe to get
-       * each of the return objects by each of the {@link BiFunction} invocations.
+       * returns an {@link Traversable} to navigate each of the
+       * {@link BiFunction} invocation returns.
        *
        * This method can be used to implement operations that store a set of
        * keys and return previous values or metadata parameters.
@@ -560,17 +551,15 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @param f function that takes in a value associated with a key in the
        *          entries collection and the {@link ReadWriteEntryView} associated
        *          with that key in the cache
-       * @return an {@link Observable} who will emit the returned object for
-       *         each executed {@link BiFunction}
+       * @return a {@link Traversable} to navigate each {@link BiFunction} return
        */
       <R> Traversable<R> evalMany(Map<? extends K, ? extends V> entries, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
 
       /**
        * Evaluate a read-write {@link Function} operation with the
        * {@link ReadWriteEntryView} of the value associated with the key, for each
-       * of the keys in the set passed in, and returns an {@link Observable}
-       * to which the user can subscribe get asynchronous callbacks for each
-       * returned object by the {@link Function}
+       * of the keys in the set passed in, and returns a {@link Traversable}
+       * to navigate each of the {@link BiFunction} invocation returns.
        *
        * This method can be used to implement operations such as
        * {@link javax.cache.Cache#invokeAll(Set, EntryProcessor, Object...)},
@@ -581,35 +570,20 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *             passed in the function callbacks
        * @param f function that the {@link ReadWriteEntryView} associated with
        *          one of the keys passed in, and returns a value
-       * @return an {@link Observable} who will emit an element for each
-       *         returned object from the executed {@link Function}
+       * @return a {@link Traversable} to navigate each {@link Function} return
        */
       <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f);
 
       /**
-       * Provides an Observable to which subscribers can be registered to work
-       * on all the cached entries.
-       *
-       * This method can be used to implement operations such as:
-       * <ul>
-       *    <li>{@link ConcurrentMap#containsValue(Object)}</li>
-       *    <li>{@link ConcurrentMap#values()}</li>
-       *    <li>{@link ConcurrentMap#entrySet()}</li>
-       *    <li>{@link javax.cache.Cache#iterator()}</li>
-       * </ul>
-       *
-       * @return an {@link Observable} who will emit an element for each cached entry
-       */
-
-      /**
-       * Provides an Observable to which subscribers can be registered to
-       * execute a read-write operation on all cached entries.
+       * Provides a {@link Traversable} to navigate and execute a read-write
+       * operation on all cached entries.
        *
        * This method can be used to an operation that removes all cached
        * entries individually, and returns previous value and/or metadata
        * parameters.
        *
-       * @return an {@link Observable} who will emit an element for each cached entry
+       * @return a {@link Traversable} to navigate each cached entry and
+       *         execute a read-write operation on it
        */
       Traversable<ReadWriteEntryView<K, V>> entries();
 

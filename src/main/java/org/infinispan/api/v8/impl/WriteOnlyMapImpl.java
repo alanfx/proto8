@@ -7,11 +7,13 @@ import org.infinispan.api.v8.Listeners.WriteListeners;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.infinispan.api.v8.Param.WaitMode.ID;
@@ -64,7 +66,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                   f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
                   return null;
                });
-            return Iterators.of(stream);
+            return Iterators.eager(stream);
          default:
             throw new IllegalStateException();
       }
@@ -80,7 +82,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
                f.accept(EntryViews.writeOnly(k, WriteOnlyMapImpl.this));
                return null;
             });
-            return Iterators.of(stream);
+            return Iterators.eager(stream);
          default:
             throw new IllegalStateException();
       }
@@ -94,7 +96,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
          case BLOCKING:
             Stream<WriteEntryView<V>> stream = functionalMap.data.entrySet().stream()
                .map(e -> EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
-            return Iterators.of(stream);
+            return Iterators.eager(stream);
          default:
             throw new IllegalStateException();
       }

@@ -92,8 +92,11 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public void putAll(Map<? extends K, ? extends V> m) {
-      CloseableIterator<Void> it = writeOnly.evalMany(m, (ev, v) -> v.set(ev));
-      it.forEachRemaining(aVoid -> {});
+      // Since blocking is in use, there's no need to consume the iterator.
+      // With blocking, the iterator gets pro-actively consumed, and the
+      // return offers the possibility to re-iterate by the user.
+      // Since the iteration here has no result, we can skip the iteration altogether.
+      writeOnly.evalMany(m, (ev, v) -> v.set(ev));
    }
 
    @Override

@@ -45,13 +45,20 @@ public interface Param<P> {
 
    /**
     * Wait mode controls whether the functional operation is blocking or
-    * not blocking. By default, functional map operations are non-blocking,
-    * which means that they return either a {@link CompletableFuture} for
-    * single-value returns, or a {@link Observable} for multi-value returns,
-    * and when the result(s) are available, they make callbacks onto the
-    * returned values. If blocking, functional map operations will block
-    * until the operations are completed, and the {@link CompletableFuture}
-    * or {@link Observable} will contain operation result(s).
+    * not blocking.
+    *
+    * By default, functional map operations are non-blocking,
+    * so for {@link CompletableFuture} returns, these be asynchronously
+    * completed, and for {@link Traversable} or {@link CloseableIterator}
+    * returns, they will be computed without waiting for all the results
+    * to be available.
+    *
+    * If blocking, functional map operations will block
+    * until the operations are completed. So, when an operation returns a
+    * {@link CompletableFuture}, it'll already be completed. For operations
+    * that {@link Traversable} or {@link CloseableIterator}, these will
+    * already be pre-computed and the navigation will happen over the
+    * already computed values.
     */
    enum WaitMode implements Param<WaitMode> {
       BLOCKING {

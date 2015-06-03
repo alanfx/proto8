@@ -46,7 +46,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
             Stream<R> stream = functionalMap.data.entrySet().stream()
                .filter(e -> s.contains(e.getKey()))
                .map(e -> f.apply(EntryViews.readOnly(e.getKey(), e.getValue())));
-            return Traversables.of(stream);
+            return Traversables.eager(stream);
          default:
             throw new IllegalStateException("Not yet implemented");
       }
@@ -58,7 +58,7 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return Traversables.of(functionalMap.data.keySet().stream());
+            return Traversables.eager(functionalMap.data.keySet().stream());
          default:
             throw new IllegalStateException("Not yet implemented");
       }
