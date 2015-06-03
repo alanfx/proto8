@@ -2,15 +2,14 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
-import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
+import org.infinispan.api.v8.Traversable;
 
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
 
@@ -39,101 +38,41 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
    }
 
    @Override
-   public <R> Observable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
+   public <R> Traversable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
       System.out.printf("[R] Invoked evalMany(m=%s, %s)%n", s, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<R>() {
-               @Override
-               public Subscription subscribe(Observer<? super R> observer) {
-                  s.forEach(k -> {
-                     InternalEntry<V> entry = functionalMap.data.get(k);
-                     if (entry != null) {
-                        R result = f.apply(EntryViews.readOnly(k, entry));
-                        observer.onNext(result);
-                     }
-                  });
-                  observer.onCompleted();
-                  return null;
-               }
-
-               @Override
-               public Subscription subscribe(Subscriber<? super R> subscriber) {
-                  Iterator<? extends K> it = s.iterator();
-                  while (it.hasNext() && !subscriber.isUnsubscribed()) {
-                     K k = it.next();
-                     InternalEntry<V> entry = functionalMap.data.get(k);
-                     if (entry != null) {
-                        R result = f.apply(EntryViews.readOnly(k, entry));
-                        subscriber.onNext(result);
-                     }
-                  }
-
-                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
-                  return null;
-               }
-            };
+            Stream<R> stream = functionalMap.data.entrySet().stream()
+               .filter(e -> s.contains(e.getKey()))
+               .map(e -> f.apply(EntryViews.readOnly(e.getKey(), e.getValue())));
+            return Traversables.of(stream);
          default:
             throw new IllegalStateException("Not yet implemented");
       }
    }
 
    @Override
-   public Observable<K> keys() {
+   public Traversable<K> keys() {
       System.out.printf("[R] Invoked keys(%s)%n", params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<K>() {
-               @Override
-               public Subscription subscribe(Observer<? super K> observer) {
-                  functionalMap.data.forEach((k, v) -> observer.onNext(k));
-                  observer.onCompleted();
-                  return null;
-               }
-
-               @Override
-               public Subscription subscribe(Subscriber<? super K> subscriber) {
-                  Iterator<K> it = functionalMap.data.keySet().iterator();
-                  while (it.hasNext() && !subscriber.isUnsubscribed())
-                     subscriber.onNext(it.next());
-
-                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
-                  return null;
-               }
-            };
+            return Traversables.of(functionalMap.data.keySet().stream());
          default:
             throw new IllegalStateException("Not yet implemented");
       }
    }
 
    @Override
-   public Observable<ReadEntryView<K, V>> entries() {
+   public Traversable<ReadEntryView<K, V>> entries() {
       System.out.printf("[R] Invoked entries(%s)%n", params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<ReadEntryView<K, V>>() {
-               @Override
-               public Subscription subscribe(Observer<? super ReadEntryView<K, V>> observer) {
-                  functionalMap.data.forEach((k, v) -> observer.onNext(EntryViews.readOnly(k, v)));
-                  observer.onCompleted();
-                  return null;
-               }
-
-               @Override
-               public Subscription subscribe(Subscriber<? super ReadEntryView<K, V>> subscriber) {
-                  Iterator<Map.Entry<K, InternalEntry<V>>> it = functionalMap.data.entrySet().iterator();
-                  while (it.hasNext() && !subscriber.isUnsubscribed()) {
-                     Map.Entry<K, InternalEntry<V>> entry = it.next();
-                     subscriber.onNext(EntryViews.readOnly(entry.getKey(), entry.getValue()));
-                  }
-
-                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
-                  return null;
-               }
-            };
+            Stream<ReadEntryView<K, V>> stream = functionalMap.data.entrySet().stream()
+               .map(e -> EntryViews.readOnly(e.getKey(), e.getValue()));
+            return Traversables.of(stream);
          default:
             throw new IllegalStateException("Not yet implemented");
       }

@@ -2,17 +2,16 @@ package org.infinispan.api.v8.impl;
 
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
-import org.infinispan.api.v8.Listeners;
 import org.infinispan.api.v8.Listeners.ReadWriteListeners;
-import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
+import org.infinispan.api.v8.Traversable;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.infinispan.api.v8.Param.WaitMode.ID;
 import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
@@ -49,41 +48,26 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
    }
 
    @Override
-   public <R> Observable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
-      return null;  // TODO: Customise this generated block
+   public <R> Traversable<R> evalMany(Map<? extends K, ? extends V> m, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
+      throw new IllegalStateException("Not yet implemented");
    }
 
    @Override
-   public <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f) {
+   public <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[RW] Invoked evalMany(keys=%s, %s)%n", keys, params);
       Param<Param.WaitMode> waitMode = params.get(ID);
       switch (waitMode.get()) {
          case BLOCKING:
-            return new Observable<R>() {
-               @Override
-               public Subscription subscribe(Observer<? super R> observer) {
-                  keys.forEach(k -> observer.onNext(f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this))));
-                  observer.onCompleted();
-                  return null;
-               }
-
-               @Override
-               public Subscription subscribe(Subscriber<? super R> subscriber) {
-                  Iterator<? extends K> it = keys.iterator();
-                  while (it.hasNext() && !subscriber.isUnsubscribed())
-                     subscriber.onNext(f.apply(EntryViews.readWrite(it.next(), ReadWriteMapImpl.this)));
-
-                  if (!subscriber.isUnsubscribed()) subscriber.onCompleted();
-                  return null;
-               }
-            };
+            Stream<R> stream = keys.stream()
+               .map(k -> f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this)));
+            return Traversables.of(stream);
          default:
             throw new IllegalStateException();
       }
    }
 
    @Override
-   public Observable<ReadWriteEntryView<K, V>> entries() {
+   public Traversable<ReadWriteEntryView<K, V>> entries() {
       throw new IllegalStateException("Not yet implemented");
    }
 

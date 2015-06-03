@@ -11,21 +11,23 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * A subset of the {@link java.util.stream.Stream} API. The following
- * {@link java.util.stream.Stream} operations are not included:
+ * Unsorted traversable stream. Design is inspired on {@link java.util.stream.Stream}.
+ * Some functions that would be typically found in {@link java.util.stream.Stream}
+ * are not included here:
  *
  * <ul>
  *    <li>{@link java.util.stream.Stream#distinct()}: This operation would be
  *    extremely costly in a distributed environment as all data up to that
- *    point of the stream must be read by a single node. Due to the memory and
- *    performance constraints this method wouldn't be supported.
+ *    point of the traversable stream must be read by a single node.
+ *    Due to the memory and performance constraints this method wouldn't be supported.
  *    </li>
- *    <li>{@link java.util.stream.Stream#sorted()}: Expensive?
+ *    <li>{@link java.util.stream.Stream#sorted()}: Providing a sorted
+ *    traversable stream in a distributed environment is an expensive operation.
  *    </li>
  *    <li>{@link java.util.stream.Stream#limit(long)}: In a distributed
  *    environment this would require sequential requests for each node to
  *    verify that we haven't reached the limit yet. This could be optimized
- *    depending on the terminator. This operation Makes most sense when
+ *    depending on the terminator. This operation makes most sense when
  *    combined with sorted streams.
  *    </li>
  *    <li>{@link java.util.stream.Stream#sorted()}: Operation that makes
@@ -55,7 +57,7 @@ import java.util.function.Supplier;
  *
  * @param <T>
  */
-public interface SubStream<T> {
+public interface Traversable<T> {
 
    // TODO: In distributed environments, where the lambdas passed are executed could matter a lot:
    // For example, for filtering, the predicate would be better run directly
@@ -71,13 +73,13 @@ public interface SubStream<T> {
    //       This option is also handy for situations where the lambda captures
    //       objects that simply cannot be marshalled.
 
-   SubStream<T> filter(Predicate<? super T> p);
+   Traversable<T> filter(Predicate<? super T> p);
 
-   <R> SubStream<R> map(Function<? super T, ? extends R> f);
+   <R> Traversable<R> map(Function<? super T, ? extends R> f);
 
-   <R> SubStream<R> flatMap(Function<? super T, ? extends SubStream<? extends R>> f);
+   <R> Traversable<R> flatMap(Function<? super T, ? extends Traversable<? extends R>> f);
 
-   SubStream<T> peek(Consumer<? super T> c);
+   Traversable<T> peek(Consumer<? super T> c);
 
    void forEach(Consumer<? super T> c);
 
@@ -85,7 +87,7 @@ public interface SubStream<T> {
 
    Optional<T> reduce(BinaryOperator<T> folder);
 
-   <U> U reduce(U z, BiFunction<U, ? super T, U> mapper,  BinaryOperator<U> folder);
+   <U> U reduce(U z, BiFunction<U, ? super T, U> mapper, BinaryOperator<U> folder);
 
    <R> R collect(Supplier<R> s, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner);
 
@@ -102,5 +104,7 @@ public interface SubStream<T> {
    boolean noneMatch(Predicate<? super T> predicate);
 
    Optional<T> findAny();
+
+   CloseableIterator<T> iterator();
 
 }

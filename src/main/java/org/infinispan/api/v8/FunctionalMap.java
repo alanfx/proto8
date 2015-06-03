@@ -54,6 +54,12 @@ import java.util.function.Function;
  *    future, we might decide to make these functions marshallable, but
  *    outside the standard.
  *    </li>
+ *    <li>For those operations that act on multiple keys, or return more than
+ *    one result, functional map uses a pull-based API whose main entry point
+ *    is {@link Traversable}. Alternative designs based on push-based
+ *    approaches, e.g. Rx Java or similar, have been considered but it has
+ *    been decided against it. The main reason is usability, pull-based API
+ *    are easier from the user perspective... </li>
  * </ul>
  */
 public interface FunctionalMap<K, V> extends AutoCloseable {
@@ -164,7 +170,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @return an {@link Observable} who will emit an element for
        *         each function return value
        */
-      <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadEntryView<K, V>, R> f);
+      <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadEntryView<K, V>, R> f);
 
       /**
        * Provides an Observable to which subscribers can be registered to work
@@ -179,7 +185,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *
        * @return an {@link Observable} who will emit an element for each cached key
        */
-      Observable<K> keys();
+      Traversable<K> keys();
 
       /**
        * Provides an Observable to which subscribers can be registered to work
@@ -195,7 +201,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *
        * @return an {@link Observable} who will emit an element for each cached entry
        */
-      Observable<ReadEntryView<K, V>> entries();
+      Traversable<ReadEntryView<K, V>> entries();
    }
 
    /**
@@ -330,6 +336,15 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *    </li>
        * </ul>
        *
+       * TODO:
+       *
+       *       // Currently, the iterator needs to be consumed for the function to be
+       // applied to each element in the given map, but in a more realistic
+       // implementation, the operations could happen immediately, as soon as
+       // evalMany has been called, and the iterator to lazily evaluate the
+       // result of those.
+
+       *
        * @param entries the key/value pairs associated with each of the
        *             {@link WriteEntryView} passed in the function callbacks
        * @param f operation that consumes a value associated with a key in the
@@ -338,7 +353,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @return an {@link Observable} who will emit a null element for
        *         each completed write function execution
        */
-      Observable<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
+      CloseableIterator<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f);
 
       /**
        * Evaluate a write-only {@link Consumer} operation with the
@@ -372,7 +387,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @return an {@link Observable} who will emit a null element for
        *         each completed write function execution
        */
-      Observable<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f);
+      CloseableIterator<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f);
 
       /**
        * Provides an Observable to which subscribers can be registered to work
@@ -383,7 +398,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *
        * @return an {@link Observable} who will emit an element for each cached value
        */
-      Observable<WriteEntryView<V>> values();
+      CloseableIterator<WriteEntryView<V>> values();
 
       /**
        * Truncate the contents of the cache, returning a {@link CompletableFuture}
@@ -548,7 +563,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @return an {@link Observable} who will emit the returned object for
        *         each executed {@link BiFunction}
        */
-      <R> Observable<R> evalMany(Map<? extends K, ? extends V> entries, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
+      <R> Traversable<R> evalMany(Map<? extends K, ? extends V> entries, BiFunction<V, ReadWriteEntryView<K, V>, R> f);
 
       /**
        * Evaluate a read-write {@link Function} operation with the
@@ -569,7 +584,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        * @return an {@link Observable} who will emit an element for each
        *         returned object from the executed {@link Function}
        */
-      <R> Observable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f);
+      <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f);
 
       /**
        * Provides an Observable to which subscribers can be registered to work
@@ -596,7 +611,7 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
        *
        * @return an {@link Observable} who will emit an element for each cached entry
        */
-      Observable<ReadWriteEntryView<K, V>> entries();
+      Traversable<ReadWriteEntryView<K, V>> entries();
 
       /**
        * Allows to read-write listeners to be registered.

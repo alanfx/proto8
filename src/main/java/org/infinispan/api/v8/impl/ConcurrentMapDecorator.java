@@ -1,12 +1,9 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.EntryView.ReadEntryView;
+import org.infinispan.api.v8.CloseableIterator;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
-import org.infinispan.api.v8.Observable;
-import org.infinispan.api.v8.Observable.Observer;
-import org.infinispan.api.v8.Observable.Subscriber;
 import org.infinispan.api.v8.Param.WaitMode;
 
 import java.util.ArrayList;
@@ -42,35 +39,12 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public int size() {
-      Observable<K> keys = readOnly.keys();
-      CountingObserver<K> obs = new CountingObserver<>();
-      keys.subscribe(obs); // Wait mode is BLOCKING, so will block until completed
-      return obs.count;
-   }
-
-   private static final class CountingObserver<T> implements Observer<T> {
-      int count;
-      @Override public void onNext(T t) {
-         count++;
-      }
+      return (int) readOnly.keys().count();
    }
 
    @Override
    public boolean isEmpty() {
-      Observable<K> keys = readOnly.keys();
-      NotEmptySubscriber<K> subs = new NotEmptySubscriber<>();
-      keys.subscribe(subs); // Wait mode is BLOCKING, so will block until completed
-      return subs.isEmpty;
-   }
-
-   private static final class NotEmptySubscriber<T> extends Subscriber<T> {
-      // The prototype assumes single-threaded onNext() callbacks,
-      // but the concurrency access semantics are still TBD.
-      boolean isEmpty = true;
-      @Override public void onNext(T t) {
-         isEmpty = false;
-         this.unsubscribe();
-      }
+      return !readOnly.keys().findAny().isPresent();
    }
 
    @Override
@@ -80,28 +54,7 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public boolean containsValue(Object value) {
-      Observable<ReadEntryView<K, V>> values = readOnly.entries();
-      FindValueSubscriber<K, V> subs = new FindValueSubscriber<>(value);
-      values.subscribe(subs); // Wait mode is BLOCKING, so will block until completed
-      return subs.found;
-   }
-
-   private static final class FindValueSubscriber<K, V> extends Subscriber<ReadEntryView<K, V>> {
-      // The prototype assumes single-threaded onNext() callbacks,
-      // but the concurrency access semantics are still TBD.
-      final Object valueToFind;
-      boolean found = false;
-
-      private FindValueSubscriber(Object valueToFind) {
-         this.valueToFind = valueToFind;
-      }
-
-      @Override public void onNext(ReadEntryView<K, V> t) {
-         if (valueToFind.equals(t.get())) {
-            found = true;
-            this.unsubscribe();
-         }
-      }
+      return readOnly.entries().anyMatch(ro -> ro.get().equals(value));
    }
 
    @Override
@@ -139,8 +92,8 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public void putAll(Map<? extends K, ? extends V> m) {
-      Observable<Void> obs = writeOnly.evalMany(m, (ev, v) -> v.set(ev));
-      obs.subscribe(Observers.noop()); // Wait mode is BLOCKING, so will block until completed
+      CloseableIterator<Void> it = writeOnly.evalMany(m, (ev, v) -> v.set(ev));
+      it.forEachRemaining(aVoid -> {});
    }
 
    @Override
@@ -150,25 +103,17 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
 
    @Override
    public Set<K> keySet() {
-      Observable<K> keys = readOnly.keys();
-      Set<K> set = new HashSet<>();
-      keys.subscribe(set::add); // Wait mode is BLOCKING, so will block until completed
-      return set;
+      return readOnly.keys().collect(HashSet::new, HashSet::add, HashSet::addAll);
    }
 
    @Override
    public Collection<V> values() {
-      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
-      Collection<V> c = new ArrayList<>();
-      entries.subscribe(v -> c.add(v.get())); // Wait mode is BLOCKING, so will block until completed
-      return c;
+      return readOnly.entries().collect(ArrayList::new, (l, v) -> l.add(v.get()), ArrayList::addAll);
    }
 
    @Override
    public Set<Entry<K, V>> entrySet() {
-      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
-      Set<Entry<K, V>> set = new HashSet<>();
-      entries.subscribe(ro -> set.add(new Entry<K, V>() {
+      return readOnly.entries().collect(HashSet::new, (s, ro) -> s.add(new Entry<K, V>() {
          @Override
          public K getKey() {
             return ro.key();
@@ -203,9 +148,7 @@ public class ConcurrentMapDecorator<K, V> implements ConcurrentMap<K, V>  {
          public int hashCode() {
             return ro.hashCode();
          }
-      }));
-
-      return set;
+      }), HashSet::addAll);
    }
 
    @Override

@@ -1,14 +1,15 @@
 package org.infinispan.api.v8.impl;
 
+import org.infinispan.api.v8.CloseableIterator;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
-import org.infinispan.api.v8.Observable;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Status;
+import org.infinispan.api.v8.Traversable;
 
 import javax.cache.Cache;
 import javax.cache.CacheManager;
@@ -24,10 +25,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A {@link javax.cache.Cache} implementation that uses the operations exposed by
@@ -56,10 +55,8 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public Map<K, V> getAll(Set<? extends K> keys) {
-      Observable<ReadEntryView<K, V>> obs = readOnly.evalMany(keys, ro -> ro);
-      Map<K, V> map = new HashMap<>();
-      obs.subscribe(ro -> map.put(ro.key(), ro.get())); // Wait mode is BLOCKING, so will block until completed
-      return map;
+      Traversable<ReadEntryView<K, V>> t = readOnly.evalMany(keys, ro -> ro);
+      return t.collect(HashMap::new, (m, ro) -> m.put(ro.key(), ro.get()), HashMap::putAll);
    }
 
    @Override
@@ -83,8 +80,8 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void putAll(Map<? extends K, ? extends V> map) {
-      Observable<Void> obs = writeOnly.evalMany(map, (ev, v) -> v.set(ev));
-      obs.subscribe(Observers.noop()); // Wait mode is BLOCKING, so will block until completed
+      CloseableIterator<Void> it = writeOnly.evalMany(map, (ev, v) -> v.set(ev));
+      it.forEachRemaining(aVoid -> {});
    }
 
    @Override
@@ -156,14 +153,13 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public void removeAll(Set<? extends K> keys) {
-      Observable<Void> obs = writeOnly.evalMany(keys, WriteEntryView::remove);
-      obs.subscribe(Observers.noop()); // Wait mode is BLOCKING, so will block until completed
+      CloseableIterator<Void> it = writeOnly.evalMany(keys, WriteEntryView::remove);
+      it.forEachRemaining(aVoid -> {});
    }
 
    @Override
    public void removeAll() {
-      Observable<WriteEntryView<V>> values = writeOnly.values();
-      values.subscribe(WriteEntryView::remove); // Wait mode is BLOCKING, so will block until completed
+      writeOnly.values().forEachRemaining(WriteEntryView::remove);
    }
 
    @Override
@@ -173,10 +169,7 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public Iterator<Entry<K, V>> iterator() {
-      Observable<ReadEntryView<K, V>> entries = readOnly.entries();
-      final BlockingQueue<Entry<K, V>> entryEvents = new LinkedBlockingQueue<>();
-      // Wait mode is BLOCKING, so subscribe will block until completed
-      entries.subscribe(rw -> entryEvents.add(new Entry<K, V>() {
+      Traversable<Entry<K, V>> t = readOnly.entries().map(rw -> new Entry<K, V>() {
          @Override
          public K getKey() {
             return rw.key();
@@ -191,27 +184,12 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
          public <T> T unwrap(Class<T> clazz) {
             return null;
          }
-      }));
-
-      return new Iterator<Entry<K, V>>() {
-         @Override
-         public boolean hasNext() {
-            return entryEvents.peek() != null;
-         }
-
-         @Override
-         public Entry<K, V> next() {
-            try {
-               return entryEvents.take();
-            } catch (InterruptedException e) {
-               throw new AssertionError(e);
-            }
-         }
 
          // In Java 8, default remove() implementation is unsupported, but
          // adding support for it would be relatively trivial if following
          // similar solution to the one in ConcurrentMapDecorator
-      };
+      });
+      return t.iterator();
    }
 
    @Override
@@ -260,15 +238,13 @@ public class JCacheDecorator<K, V> implements Cache<K, V> {
 
    @Override
    public <T> Map<K, EntryProcessorResult<T>> invokeAll(Set<? extends K> keys, EntryProcessor<K, V, T> entryProcessor, Object... arguments) {
-      Observable<EntryProcessorResultWithKey<K, T>> obs = readWrite.evalMany(keys, rw -> {
-            T t = entryProcessor.process(new ReadWriteMutableEntry<>(rw), arguments);
-            return new EntryProcessorResultWithKey<>(rw.key(), t);
+      Traversable<EntryProcessorResultWithKey<K, T>> t = readWrite.evalMany(keys, rw -> {
+            T res = entryProcessor.process(new ReadWriteMutableEntry<>(rw), arguments);
+            return new EntryProcessorResultWithKey<>(rw.key(), res);
          }
       );
 
-      Map<K, EntryProcessorResult<T>> map = new HashMap<>();
-      obs.subscribe(res -> map.put(res.key, res)); // Wait mode is BLOCKING, so will block until completed
-      return map;
+      return t.collect(HashMap::new, (m, res) -> m.put(res.key, res), HashMap::putAll);
    }
 
    private static final class EntryProcessorResultWithKey<K, T> implements EntryProcessorResult<T> {
