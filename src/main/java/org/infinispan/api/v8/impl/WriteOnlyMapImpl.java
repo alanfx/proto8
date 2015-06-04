@@ -1,23 +1,19 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.CloseableIterator;
+import org.infinispan.api.v8.Closeables.CloseableIterator;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;
 import org.infinispan.api.v8.Listeners.WriteListeners;
 import org.infinispan.api.v8.Param;
 import org.infinispan.api.v8.Param.WaitMode;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static org.infinispan.api.v8.Param.WaitMode.ID;
-import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
+import static org.infinispan.api.v8.Param.WaitMode.*;
 
 public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements WriteOnlyMap<K, V> {
 
@@ -40,7 +36,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
    public CompletableFuture<Void> eval(K key, Consumer<WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked eval(k=%s, %s)%n", key, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> {
+      return withWaitFuture(waitMode.get(), () -> {
          f.accept(EntryViews.writeOnly(key, this));
          return null;
       });
@@ -50,7 +46,7 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
    public CompletableFuture<Void> eval(K key, V value, BiConsumer<V, WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> {
+      return withWaitFuture(waitMode.get(), () -> {
          f.accept(value, EntryViews.writeOnly(key, this));
          return null;
       });
@@ -60,46 +56,30 @@ public class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implemen
    public CloseableIterator<Void> evalMany(Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked evalMany(entries=%s, %s)%n", entries, params);
       Param<WaitMode> waitMode = params.get(ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<Void> stream = entries.entrySet().stream().map(e -> {
-                  f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
-                  return null;
-               });
-            return Iterators.eager(stream);
-         default:
-            throw new IllegalStateException();
-      }
+      return withWaitIterator(waitMode, () -> entries.entrySet().stream().map(e -> {
+            f.accept(e.getValue(), EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
+            return null;
+         })
+      );
    }
 
    @Override
    public CloseableIterator<Void> evalMany(Set<? extends K> keys, Consumer<WriteEntryView<V>> f) {
       System.out.printf("[W] Invoked evalMany(keys=%s, %s)%n", keys, params);
       Param<WaitMode> waitMode = params.get(ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<Void> stream = keys.stream().map(k -> {
-               f.accept(EntryViews.writeOnly(k, WriteOnlyMapImpl.this));
-               return null;
-            });
-            return Iterators.eager(stream);
-         default:
-            throw new IllegalStateException();
-      }
+      return withWaitIterator(waitMode, () -> keys.stream().map(k -> {
+         f.accept(EntryViews.writeOnly(k, WriteOnlyMapImpl.this));
+         return null;
+      }));
    }
 
    @Override
    public CloseableIterator<WriteEntryView<V>> values() {
       System.out.printf("[W] Invoked values(%s)%n", params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<WriteEntryView<V>> stream = functionalMap.data.entrySet().stream()
-               .map(e -> EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this));
-            return Iterators.eager(stream);
-         default:
-            throw new IllegalStateException();
-      }
+      return withWaitIterator(waitMode, () -> functionalMap.data.entrySet().stream()
+         .map(e -> EntryViews.writeOnly(e.getKey(), WriteOnlyMapImpl.this))
+      );
    }
 
    @Override

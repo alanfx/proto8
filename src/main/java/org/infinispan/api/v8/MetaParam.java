@@ -16,6 +16,12 @@ import java.util.Optional;
  * time when value was added into the functional map, or last time value
  * was accessed or modified.
  *
+ * What makes {@link MetaParam} different from {@link Param} is that {@link MetaParam}
+ * values are designed to be stored along with key/value pairs in the functional map,
+ * to provide extra information. On the other hand, {@link Param} instances
+ * merely act as ways to tweak how operations are executed, and their contents
+ * are never stored permanently.
+ *
  * DESIGN RATIONALES:
  * <ul>
  *    <il>This interface replaces Infinispan's Metadata interface providing

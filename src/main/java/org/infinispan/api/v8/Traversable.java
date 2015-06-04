@@ -1,5 +1,8 @@
 package org.infinispan.api.v8;
 
+import org.infinispan.api.v8.Closeables.CloseableIterator;
+import org.infinispan.api.v8.Closeables.CloseableSpliterator;
+
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -57,7 +60,7 @@ import java.util.function.Supplier;
  *
  * @param <T>
  */
-public interface Traversable<T> {
+public interface Traversable<T> extends AutoCloseable {
 
    // TODO: In distributed environments, where the lambdas passed are executed could matter a lot:
    // For example, for filtering, the predicate would be better run directly
@@ -72,6 +75,20 @@ public interface Traversable<T> {
    //       peek() and for each. This could easily be done with a new Param.
    //       This option is also handy for situations where the lambda captures
    //       objects that simply cannot be marshalled.
+
+   /**
+    * Closeable iterator for manually iterating over the contents of the
+    * traversable. The iterator also helps with determining when the end of
+    * the traversable has been reached, by checking {@link CloseableIterator#hasNext()}
+    */
+   CloseableIterator<T> iterator();
+
+   /**
+    * Closeable spliterator for manually iterating over the contents of the
+    * traversable. The iterator also helps with determining when the end of
+    * the traversable has been reached, by checking {@link CloseableIterator#hasNext()}
+    */
+   CloseableSpliterator<T> spliterator();
 
    /**
     * Return a traversable containing elements matching the given predicate.
@@ -95,12 +112,6 @@ public interface Traversable<T> {
    <R> Traversable<R> flatMap(Function<? super T, ? extends Traversable<? extends R>> f);
 
    /**
-    * Returns a traversable consisting of the elements of this traversable,
-    * performing an operation for each element as they are consumed.
-    */
-   Traversable<T> peek(Consumer<? super T> c);
-
-   /**
     * Applies an operation to all elements of this traversable.
     */
    void forEach(Consumer<? super T> c);
@@ -115,8 +126,6 @@ public interface Traversable<T> {
     * Applies a binary folding operation to all elements of this traversable,
     * and wraps the result in an optional. If the traversable is empty, it
     * returns an empty optional.
-    *
-    * TODO: Syntactic sugar of {@link #reduce(Object, BinaryOperator)}. Shall we leave it in?
     */
    Optional<T> reduce(BinaryOperator<T> folder);
 
@@ -142,24 +151,22 @@ public interface Traversable<T> {
     * Returns an optional containing the minimum element of this traversable
     * based on the comparator passed in. If the traversable is empty,
     * it returns an empty optional.
-    *
-    * TODO: This is syntactic sugar for reduction, shall we leave it in?
     */
-   Optional<T> min(Comparator<? super T> comparator);
+   default Optional<T> min(Comparator<? super T> comparator) {
+      return reduce(BinaryOperator.minBy(comparator));
+   }
 
    /**
     * Returns an optional containing the maximum element of this traversable
     * based on the comparator passed in. If the traversable is empty,
     * it returns an empty optional.
-    *
-    * TODO: This is syntactic sugar for reduction, shall we leave it in?
     */
-   Optional<T> max(Comparator<? super T> comparator);
+   default Optional<T> max(Comparator<? super T> comparator) {
+      return reduce(BinaryOperator.maxBy(comparator));
+   }
 
    /**
     * Return the number of elements in the traversable.
-    *
-    * TODO: This is syntactic sugar for reduction, shall we leave it in?
     */
    long count();
 
@@ -199,10 +206,9 @@ public interface Traversable<T> {
    Optional<T> findAny();
 
    /**
-    * Closeable iterator for manually iterating over the contents of the
-    * traversable. The iterator also helps with determining when the end of
-    * the traversable has been reached, by checking {@link CloseableIterator#hasNext()}
+    * Close traversable and release any resources held.
     */
-   CloseableIterator<T> iterator();
+   @Override
+   void close();
 
 }

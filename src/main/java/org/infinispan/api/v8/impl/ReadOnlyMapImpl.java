@@ -11,7 +11,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
+import static org.infinispan.api.v8.Param.WaitMode.withWaitFuture;
+import static org.infinispan.api.v8.Param.WaitMode.withWaitTraversable;
 
 public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements ReadOnlyMap<K, V> {
 
@@ -34,48 +35,35 @@ public final class ReadOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> imp
    public <R> CompletableFuture<R> eval(K key, Function<ReadEntryView<K, V>, R> f) {
       System.out.printf("[R] Invoked eval(k=%s, %s)%n", key, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.readOnly(key, functionalMap.data.get(key))));
+      return withWaitFuture(waitMode, () -> f.apply(EntryViews.readOnly(key, functionalMap.data.get(key))));
    }
 
    @Override
    public <R> Traversable<R> evalMany(Set<? extends K> s, Function<ReadEntryView<K, V>, R> f) {
       System.out.printf("[R] Invoked evalMany(m=%s, %s)%n", s, params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<R> stream = functionalMap.data.entrySet().stream()
-               .filter(e -> s.contains(e.getKey()))
-               .map(e -> f.apply(EntryViews.readOnly(e.getKey(), e.getValue())));
-            return Traversables.eager(stream);
-         default:
-            throw new IllegalStateException("Not yet implemented");
-      }
+      return withWaitTraversable(waitMode, () ->
+         functionalMap.data.entrySet().stream()
+            .filter(e -> s.contains(e.getKey()))
+            .map(e -> f.apply(EntryViews.readOnly(e.getKey(), e.getValue())))
+      );
    }
 
    @Override
    public Traversable<K> keys() {
       System.out.printf("[R] Invoked keys(%s)%n", params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            return Traversables.eager(functionalMap.data.keySet().stream());
-         default:
-            throw new IllegalStateException("Not yet implemented");
-      }
+      return withWaitTraversable(waitMode, () -> functionalMap.data.keySet().stream());
    }
 
    @Override
    public Traversable<ReadEntryView<K, V>> entries() {
       System.out.printf("[R] Invoked entries(%s)%n", params);
       Param<WaitMode> waitMode = params.get(WaitMode.ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<ReadEntryView<K, V>> stream = functionalMap.data.entrySet().stream()
-               .map(e -> EntryViews.readOnly(e.getKey(), e.getValue()));
-            return Traversables.of(stream);
-         default:
-            throw new IllegalStateException("Not yet implemented");
-      }
+      return withWaitTraversable(waitMode, () ->
+         functionalMap.data.entrySet().stream()
+            .map(e -> EntryViews.readOnly(e.getKey(), e.getValue()))
+      );
    }
 
    @Override

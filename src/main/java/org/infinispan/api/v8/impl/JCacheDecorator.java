@@ -1,6 +1,5 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.CloseableIterator;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;

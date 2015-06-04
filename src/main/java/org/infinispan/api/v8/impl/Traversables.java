@@ -1,16 +1,11 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.CloseableIterator;
-import org.infinispan.api.v8.EntryView;
-import org.infinispan.api.v8.EntryView.ReadEntryView;
+import org.infinispan.api.v8.Closeables.CloseableIterator;
+import org.infinispan.api.v8.Closeables.CloseableSpliterator;
 import org.infinispan.api.v8.Traversable;
 
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
@@ -36,8 +31,10 @@ public final class Traversables {
       // Cannot be instantiated, it's just a holder class
    }
 
-   // Attention! This is a very rudimentary/simplistic implementation!
+   // TODO: Attention! This is a very rudimentary/simplistic implementation!
    private static final class StreamTraversable<T> implements Traversable<T> {
+      // TODO: How should the rest of operations react to closed traversable?
+      volatile boolean isClosed = false;
       final Stream<T> stream;
 
       private StreamTraversable(Stream<T> stream) {
@@ -68,11 +65,6 @@ public final class Traversables {
       }
 
       @Override
-      public Traversable<T> peek(Consumer<? super T> c) {
-         return new StreamTraversable<>(stream.peek(c));
-      }
-
-      @Override
       public void forEach(Consumer<? super T> c) {
          stream.forEach(c);
       }
@@ -95,16 +87,6 @@ public final class Traversables {
       @Override
       public <R> R collect(Supplier<R> s, BiConsumer<R, ? super T> accumulator, BiConsumer<R, R> combiner) {
          return stream.collect(s, accumulator, combiner);
-      }
-
-      @Override
-      public Optional<T> min(Comparator<? super T> comparator) {
-         return stream.min(comparator);
-      }
-
-      @Override
-      public Optional<T> max(Comparator<? super T> comparator) {
-         return stream.max(comparator);
       }
 
       @Override
@@ -134,7 +116,17 @@ public final class Traversables {
 
       @Override
       public CloseableIterator<T> iterator() {
-         return Iterators.of(stream);
+         return Iterators.iterator(stream);
+      }
+
+      @Override
+      public CloseableSpliterator<T> spliterator() {
+         return Iterators.spliterator(stream);
+      }
+
+      @Override
+      public void close() {
+         isClosed = true;
       }
    }
 

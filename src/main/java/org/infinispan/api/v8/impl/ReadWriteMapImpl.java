@@ -14,7 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static org.infinispan.api.v8.Param.WaitMode.ID;
-import static org.infinispan.api.v8.Param.WaitMode.withWaitMode;
+import static org.infinispan.api.v8.Param.WaitMode.withWaitFuture;
+import static org.infinispan.api.v8.Param.WaitMode.withWaitTraversable;
 
 public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> implements ReadWriteMap<K, V> {
 
@@ -37,14 +38,14 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
    public <R> CompletableFuture<R> eval(K key, Function<ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[RW] Invoked eval(k=%s, %s)%n", key, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(EntryViews.readWrite(key, this)));
+      return withWaitFuture(waitMode.get(), () -> f.apply(EntryViews.readWrite(key, this)));
    }
 
    @Override
    public <R> CompletableFuture<R> eval(K key, V value, BiFunction<V, ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[W] Invoked eval(k=%s, v=%s, %s)%n", key, value, params);
       Param<Param.WaitMode> waitMode = params.get(Param.WaitMode.ID);
-      return withWaitMode(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, this)));
+      return withWaitFuture(waitMode.get(), () -> f.apply(value, EntryViews.readWrite(key, this)));
    }
 
    @Override
@@ -56,14 +57,9 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
    public <R> Traversable<R> evalMany(Set<? extends K> keys, Function<ReadWriteEntryView<K, V>, R> f) {
       System.out.printf("[RW] Invoked evalMany(keys=%s, %s)%n", keys, params);
       Param<Param.WaitMode> waitMode = params.get(ID);
-      switch (waitMode.get()) {
-         case BLOCKING:
-            Stream<R> stream = keys.stream()
-               .map(k -> f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this)));
-            return Traversables.eager(stream);
-         default:
-            throw new IllegalStateException();
-      }
+      return withWaitTraversable(waitMode, () -> keys.stream()
+         .map(k -> f.apply(EntryViews.readWrite(k, ReadWriteMapImpl.this)))
+      );
    }
 
    @Override

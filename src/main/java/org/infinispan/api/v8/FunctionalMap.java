@@ -1,5 +1,6 @@
 package org.infinispan.api.v8;
 
+import org.infinispan.api.v8.Closeables.CloseableIterator;
 import org.infinispan.api.v8.EntryView.ReadEntryView;
 import org.infinispan.api.v8.EntryView.ReadWriteEntryView;
 import org.infinispan.api.v8.EntryView.WriteEntryView;
@@ -217,6 +218,9 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
     *    they involve talking to a remote node in the cluster or the
     *    persistence layer, can be avoided optimising write-only operations.
     *    </li>
+    *    <li>When ported over to the main Infinispan code base, write-only
+    *    maps would be expected to acquire locks on keys before executing
+    *    functions.</li>
     * </ul>
     */
    interface WriteOnlyMap<K, V> extends FunctionalMap<K, V> {
@@ -426,6 +430,9 @@ public interface FunctionalMap<K, V> extends AutoCloseable {
     *    Read-write operations are also crucial for implementing conditional,
     *    compare-and-swap (CAS) like operations.
     *    </li>
+    *    <li>When ported over to the main Infinispan code base, read-write
+    *    maps would be expected to acquire locks on keys before executing
+    *    functions.</li>
     * </ul>
     */
    interface ReadWriteMap<K, V> extends FunctionalMap<K, V> {

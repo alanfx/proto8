@@ -1,11 +1,13 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.CloseableIterator;
-import org.infinispan.api.v8.Traversable;
+import org.infinispan.api.v8.Closeables.CloseableIterator;
+import org.infinispan.api.v8.Closeables.CloseableSpliterator;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -14,8 +16,15 @@ public final class Iterators {
    /**
     * Provide a lazily evaluated closeable iterator for a stream.
     */
-   public static <T> CloseableIterator<T> of(Stream<T> stream) {
+   public static <T> CloseableIterator<T> iterator(Stream<T> stream) {
       return new StreamCloseableIterator<>(stream);
+   }
+
+   /**
+    * Provide a lazily evaluated closeable spliterator for a stream.
+    */
+   public static <T> CloseableSpliterator<T> spliterator(Stream<T> stream) {
+      return new StreamCloseableSpliterator<>(stream);
    }
 
    /**
@@ -24,7 +33,7 @@ public final class Iterators {
     * and the closeable iterator returned is simply an iterator over the
     * already produced streamed results.
     */
-   public static <T> CloseableIterator<T> eager(Stream<T> stream) {
+   public static <T> CloseableIterator<T> eagerIterator(Stream<T> stream) {
       List<T> list = stream.collect(Collectors.toList());
       return new StreamCloseableIterator<>(list.stream());
    }
@@ -33,11 +42,11 @@ public final class Iterators {
       // Cannot be instantiated, it's just a holder class
    }
 
-   private static final class StreamCloseableIterator<E> implements CloseableIterator<E> {
+   private static final class StreamCloseableIterator<T> implements CloseableIterator<T> {
       volatile boolean isClosed = false;
-      final Iterator<E> it;
+      final Iterator<T> it;
 
-      private StreamCloseableIterator(Stream<E> stream) {
+      private StreamCloseableIterator(Stream<T> stream) {
          this.it = stream.iterator();
       }
 
@@ -47,7 +56,7 @@ public final class Iterators {
       }
 
       @Override
-      public E next() {
+      public T next() {
          if (isClosed)
             throw new NoSuchElementException("Iterator closed");
 
@@ -57,6 +66,39 @@ public final class Iterators {
       @Override
       public void close() {
          isClosed = true;
+      }
+   }
+
+   private static final class StreamCloseableSpliterator<T> implements CloseableSpliterator<T> {
+      private final Spliterator<T> it;
+
+      private StreamCloseableSpliterator(Stream<T> stream) {
+         this.it = stream.spliterator();
+      }
+
+      @Override
+      public void close() {
+         // TODO: Customise this generated block
+      }
+
+      @Override
+      public boolean tryAdvance(Consumer<? super T> action) {
+         return false;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public Spliterator<T> trySplit() {
+         return null;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public long estimateSize() {
+         return 0;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public int characteristics() {
+         return 0;  // TODO: Customise this generated block
       }
    }
 

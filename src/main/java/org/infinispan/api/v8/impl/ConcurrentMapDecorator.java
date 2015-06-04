@@ -1,6 +1,5 @@
 package org.infinispan.api.v8.impl;
 
-import org.infinispan.api.v8.CloseableIterator;
 import org.infinispan.api.v8.FunctionalMap.ReadOnlyMap;
 import org.infinispan.api.v8.FunctionalMap.ReadWriteMap;
 import org.infinispan.api.v8.FunctionalMap.WriteOnlyMap;

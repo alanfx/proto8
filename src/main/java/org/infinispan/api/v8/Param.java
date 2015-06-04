@@ -1,14 +1,19 @@
 package org.infinispan.api.v8;
 
+import org.infinispan.api.v8.Closeables.CloseableIterator;
+import org.infinispan.api.v8.impl.Iterators;
+import org.infinispan.api.v8.impl.Traversables;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * An easily extensible parameter that allows functional map operations to be
  * tweaked. Apart from {@link org.infinispan.api.v8.Param.WaitMode}, examples
  * would include local-only parameter, skip-cache-store parameter and others.
  *
- * What makes {@link Param} different to {@link MetaParam} is that {@link Param}
+ * What makes {@link Param} different from {@link MetaParam} is that {@link Param}
  * values are never stored in the functional map. They merely act as ways to
  * tweak how operations are executed.
  *
@@ -87,8 +92,8 @@ public interface Param<P> {
          return NON_BLOCKING;
       }
 
-      public static <T> CompletableFuture<T> withWaitMode(WaitMode waitMode, Supplier<T> s) {
-         switch (waitMode) {
+      public static <T> CompletableFuture<T> withWaitFuture(Param<WaitMode> waitParam, Supplier<T> s) {
+         switch (waitParam.get()) {
             case BLOCKING:
                // If blocking, complete the future directly with the result.
                // No separate thread or executor is instantiated.
@@ -102,6 +107,25 @@ public interface Param<P> {
                throw new IllegalStateException();
          }
       }
+
+      public static <T> Traversable<T> withWaitTraversable(Param<WaitMode> waitParam, Supplier<Stream<T>> s) {
+         switch (waitParam.get()) {
+            case BLOCKING:
+               return Traversables.eager(s.get());
+            default:
+               throw new IllegalStateException("Not yet implemented");
+         }
+      }
+
+      public static <T> CloseableIterator<T> withWaitIterator(Param<WaitMode> waitParam, Supplier<Stream<T>> s) {
+         switch (waitParam.get()) {
+            case BLOCKING:
+               return Iterators.eagerIterator(s.get());
+            default:
+               throw new IllegalStateException("Not yet implemented");
+         }
+      }
+
    }
 
 }
