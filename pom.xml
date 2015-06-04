@@ -32,6 +32,16 @@
        <version>4.12</version>
       <scope>test</scope>
     </dependency>
+     <dependency>
+        <groupId>org.jboss.marshalling</groupId>
+        <artifactId>jboss-marshalling</artifactId>
+        <version>1.4.10.Final</version>
+     </dependency>
+     <dependency>
+        <groupId>org.jboss.marshalling</groupId>
+        <artifactId>jboss-marshalling-river</artifactId>
+        <version>1.4.10.Final</version>
+     </dependency>
   </dependencies>
 
    <build>
