@@ -118,6 +118,11 @@ public interface MetaParam<T> {
     * {@link Id}, but they're free to choose to be backed by any positive or
     * negative number as long as no other metadata parameter is using it.
     *
+    * @apiNote Why does Id have a type parameter if it's not used within it?
+    * It helps with lookup. Each metadata parameter must provide an id with
+    * the metadata parameter type, and hence when using the id to lookup,
+    * we can deduce the returned type from the Id's type parameter.
+    *
     * @param <T> Type of {@link MetaParam} for which it provides identifier.
     */
    final class Id<T> {
