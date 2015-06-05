@@ -43,10 +43,28 @@ public class MarshallingTest {
    }
 
    /**
+    * Quick and dirty fix for situations where you want to make a lambda
+    * serializable, but with the payload size as penalty.
+    *
+    * Payload size 501 bytes, very bulky.
+    */
+   @Test
+   public void testNonCapturingLambdaAndSerializable() {
+      Function<String, Integer> fm = (Function<String, Integer> & Serializable) Integer::valueOf;
+      assertMarshalling(
+         m -> m.writeObject(fm),
+         u -> {
+            Function<String, Integer> fu = (Function<String, Integer>) u.readObject();
+            assertEquals(1, fu.apply("1").intValue());
+         }
+      );
+   }
+
+   /**
     * Does not work since lambdas are not serializable by default.
     */
    @Test(expected = NotSerializableException.class)
-   public void testNonCaptutingLambda() throws IOException {
+   public void testNonCapturingLambda() throws IOException {
       Function<String, Integer> fm = Integer::valueOf;
       assertNotSerializable(
          m -> m.writeObject(fm),
